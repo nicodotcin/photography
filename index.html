@@ -143,7 +143,12 @@ layout: default
 		                document.getElementById('thankyou_message').style.display = 'block';
 		            }
 		        };
-		        xhr.send(new URLSearchParams(new FormData(form)).toString());
+		        // Create a FormData object and send it as URL-encoded data
+		        var formData = new FormData(form);
+		        var encodedData = Array.from(formData.entries()).map(function(pair) {
+		            return encodeURIComponent(pair[0]) + '=' + encodeURIComponent(pair[1]);
+		        }).join('&');
+		        xhr.send(encodedData);
 		    });
 		</script>
             </div>
