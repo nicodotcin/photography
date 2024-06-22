@@ -107,50 +107,7 @@ layout: default
                 </p>
             </div>
             <div>
-		<section>
-		    <h2>Get in touch</h2>
-		    <form id="submit-form" method="POST" action="https://script.google.com/macros/s/AKfycbwaObSzxjunZmS6vA6mgLofEEjlYVmrf9-8qxOpPZssYimCtFZ_ULe0UA1oFgDcm1bsVA/exec">
-		        <div class="field half first">
-		            <input type="text" name="Name" id="name" placeholder="Name" required/>
-		        </div>
-		        <div class="field half">
-		            <input type="email" name="Email" id="email" placeholder="Email" required/>
-		        </div>
-		        <div class="field">
-		            <textarea name="Message" id="message" rows="4" placeholder="Message" required></textarea>
-		        </div>
-		        <ul class="actions">
-		            <li><input type="submit" value="Send" class="special"/></li>
-		            <li><input type="reset" value="Reset"/></li>
-		        </ul>
-		    </form>
-		    <div id="thankyou_message" style="display:none;">
-		        <h2>Thank you for contacting! I will get back to you soon.</h2>
-		    </div>
-		</section>
-		
-		<script>
-		    document.getElementById('submit-form').addEventListener('submit', function(e) {
-		        e.preventDefault();
-		        var form = this;
-		        var url = form.action;
-		        var xhr = new XMLHttpRequest();
-		        xhr.open('POST', url);
-		        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-		        xhr.onreadystatechange = function() {
-		            if (xhr.readyState === 4 && xhr.status === 200) {
-		                form.reset();
-		                document.getElementById('thankyou_message').style.display = 'block';
-		            }
-		        };
-		        // Create a FormData object and send it as URL-encoded data
-		        var formData = new FormData(form);
-		        var encodedData = Array.from(formData.entries()).map(function(pair) {
-		            return encodeURIComponent(pair[0]) + '=' + encodeURIComponent(pair[1]);
-		        }).join('&');
-		        xhr.send(encodedData);
-		    });
-		</script>
+
             </div>
         </div>
     </footer>
