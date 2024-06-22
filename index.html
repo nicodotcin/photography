@@ -109,7 +109,7 @@ layout: default
             <div>
 		<section>
 		    <h2>Get in touch</h2>
-		    <form id="submit-form">
+		    <form id="submit-form" method="POST" action="https://script.google.com/macros/s/AKfycbwaObSzxjunZmS6vA6mgLofEEjlYVmrf9-8qxOpPZssYimCtFZ_ULe0UA1oFgDcm1bsVA/exec">
 		        <div class="field half first">
 		            <input type="text" name="Name" id="name" placeholder="Name" required/>
 		        </div>
@@ -124,17 +124,27 @@ layout: default
 		            <li><input type="reset" value="Reset"/></li>
 		        </ul>
 		    </form>
+		    <div id="thankyou_message" style="display:none;">
+		        <h2>Thank you for contacting! I will get back to you soon.</h2>
+		    </div>
 		</section>
+		
 		<script>
-		    const scriptURL = 'https://script.google.com/macros/s/AKfycbwaObSzxjunZmS6vA6mgLofEEjlYVmrf9-8qxOpPZssYimCtFZ_ULe0UA1oFgDcm1bsVA/exec'
-		    const form = document.forms['submit-form']
-		  
-		    form.addEventListener('submit', e => {
-		      e.preventDefault()
-		      fetch(scriptURL, { method: 'POST', body: new FormData(form)})
-		        .then(response => alert("Thanks for Contacting us! We Will Contact You Soon..."))
-		        .catch(error => console.error('Error!', error.message))
-		    })
+		    document.getElementById('submit-form').addEventListener('submit', function(e) {
+		        e.preventDefault();
+		        var form = this;
+		        var url = form.action;
+		        var xhr = new XMLHttpRequest();
+		        xhr.open('POST', url);
+		        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+		        xhr.onreadystatechange = function() {
+		            if (xhr.readyState === 4 && xhr.status === 200) {
+		                form.reset();
+		                document.getElementById('thankyou_message').style.display = 'block';
+		            }
+		        };
+		        xhr.send(new URLSearchParams(new FormData(form)).toString());
+		    });
 		</script>
             </div>
         </div>
