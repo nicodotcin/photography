@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive 3D Earth Visualization</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.7; }
+            50% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.7; }
+        }
+        .pulse {
+            animation: pulse 2s infinite ease-in-out;
+        }
+        .earth-controls::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+        }
+        .earth-controls::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+        }
+
+        /* Mobile Responsive Styles */
+        @media (max-width: 768px) {
+            .controls-panel {
+                position: fixed !important;
+                bottom: 0 !important;
+                right: 0 !important;
+                top: auto !important;
+                left: 0 !important;
+                transform: translateY(85%);
+                transition: transform 0.3s ease-in-out;
+                border-radius: 20px 20px 0 0 !important;
+                max-height: 95vh;
+                overflow-y: auto;
+                z-index: 1000;
+            }
+
+            .controls-panel.expanded {
+                transform: translateY(0);
+            }
+
+            .controls-handle {
+                display: flex;
+                justify-content: center;
+                padding: 10px;
+                cursor: pointer;
+                border-radius: 20px 20px 0 0;
+            }
+
+            .controls-handle::before {
+                content: '';
+                width: 40px;
+                height: 4px;
+                background: #4b5563;
+                border-radius: 2px;
+                margin-top: -5px;
+            }
+
+            .info-panel {
+                display: none;
+            }
+
+            .coordinates-panel {
+                bottom: auto !important;
+                top: 4rem !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-black h-screen flex flex-col items-center justify-center overflow-hidden">
+    <div class="relative w-full h-full">
+        <canvas id="earthCanvas" class="w-full h-full"></canvas>
+        
+        <!-- Loading Indicator -->
+        <div id="loadingIndicator" class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 z-50">
+            <div class="text-center">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+                <p class="text-white text-lg">Loading Earth...</p>
+            </div>
+        </div>
+        
+        <!-- Title -->
+        <div class="absolute top-4 left-1/2 transform -translate-x-1/2 text-center">
+            <h1 class="text-3xl font-bold text-white tracking-wider">EARTH VISUALIZATION</h1>
+            <p class="text-blue-400 mt-1"><span class="pulse inline-block"><i class="fas fa-satellite text-xs mr-1"></i></span> Satellite View</p>
+        </div>
+        
+        <!-- Controls Panel -->
+        <div class="controls-panel absolute top-4 right-4 bg-gray-900/90 backdrop-blur-md p-5 rounded-xl text-white border border-blue-500/30 shadow-lg shadow-blue-500/20">
+            <div class="controls-handle md:hidden"></div>
+            <h2 class="text-xl mb-4 font-bold flex items-center"><i class="fas fa-sliders-h mr-2 text-blue-400"></i> Earth Controls</h2>
+            <div class="space-y-5">
+                <div>
+                    <label class="block mb-2 flex justify-between">
+                        <span><i class="fas fa-sync-alt mr-1 text-blue-400"></i> Rotation Speed</span>
+                        <span id="rotationSpeedValue" class="text-blue-400">0.5</span>
+                    </label>
+                    <input type="range" id="rotationSpeed" min="0" max="2" step="0.1" value="0.5"
+                        class="w-full bg-gray-700 rounded-lg appearance-none cursor-pointer h-2 earth-controls">
+                </div>
+                <div>
+                    <label class="block mb-2 flex justify-between">
+                        <span><i class="fas fa-cloud mr-1 text-blue-400"></i> Cloud Opacity</span>
+                        <span id="cloudOpacityValue" class="text-blue-400">0.8</span>
+                    </label>
+                    <input type="range" id="cloudOpacity" min="0" max="1" step="0.1" value="0.8"
+                        class="w-full bg-gray-700 rounded-lg appearance-none cursor-pointer h-2 earth-controls">
+                </div>
+                <div>
+                    <label class="block mb-2 flex justify-between">
+                        <span><i class="fas fa-mountain mr-1 text-blue-400"></i> Antarctica Highlight</span>
+                        <span id="antarcticaOpacityValue" class="text-blue-400">0.4</span>
+                    </label>
+                    <input type="range" id="antarcticaOpacity" min="0" max="1" step="0.1" value="0.4"
+                        class="w-full bg-gray-700 rounded-lg appearance-none cursor-pointer h-2 earth-controls">
+                </div>
+                <div class="pt-2 border-t border-gray-700">
+                    <button id="toggleRotation" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition-colors flex items-center justify-center">
+                        <i class="fas fa-pause mr-2"></i> <span id="rotationButtonText">Pause Rotation</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Antarctica Info -->
+        <div class="info-panel absolute bottom-4 left-4 bg-gray-900/90 backdrop-blur-md p-4 rounded-xl text-white border border-blue-500/30 shadow-lg shadow-blue-500/20 max-w-xs">
+            <h3 class="text-lg font-bold text-blue-400 flex items-center">
+                <i class="fas fa-info-circle mr-2"></i> Antarctica
+            </h3>
+            <p class="text-sm mt-2 text-gray-300">
+                Earth's southernmost continent, containing the geographic South Pole. It's the fifth-largest continent, nearly twice the size of Australia.
+            </p>
+            <div class="mt-3 text-xs text-blue-300 flex items-center">
+                <i class="fas fa-temperature-low mr-1"></i> Average temperature: -57°C (-70°F)
+            </div>
+        </div>
+        
+        <!-- Coordinates Display -->
+        <div class="coordinates-panel absolute bottom-4 right-4 bg-gray-900/90 backdrop-blur-md px-4 py-3 rounded-xl text-white border border-blue-500/30 shadow-lg shadow-blue-500/20">
+            <div class="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                    <div class="text-gray-400">Latitude</div>
+                    <div id="latDisplay" class="font-mono text-blue-400">0.00°</div>
+                </div>
+                <div>
+                    <div class="text-gray-400">Longitude</div>
+                    <div id="lngDisplay" class="font-mono text-blue-400">0.00°</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let scene, camera, renderer, earth, clouds, antarctica, controls;
+        let autoRotate = true;
+        let raycaster = new THREE.Raycaster();
+        let mouse = new THREE.Vector2();
+        let rotationSpeed = 0.5;
+        let markers = [];
+        let flightPaths = [];
+        let texturesLoaded = 0;
+        let totalTextures = 3; // Earth, bump map, clouds
+        
+        function init() {
+            // Create scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000000);
+
+            // Setup camera
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 2.5;
+
+            // Setup renderer
+            renderer = new THREE.WebGLRenderer({
+                canvas: document.getElementById('earthCanvas'),
+                antialias: true,
+                alpha: true
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+
+            // Add lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(5, 3, 5);
+            scene.add(directionalLight);
+            
+            // Add subtle blue point light to simulate atmosphere
+            const blueLight = new THREE.PointLight(0x3677ac, 0.5);
+            blueLight.position.set(-5, 0, -5);
+            scene.add(blueLight);
+
+            // Create Earth
+            const earthGeometry = new THREE.SphereGeometry(1, 64, 64);
+            
+            // Create material first with a fallback blue color
+            const earthMaterial = new THREE.MeshPhongMaterial({
+                color: 0x2233ff, // Fallback blue color
+                bumpScale: 0.05,
+                specular: new THREE.Color(0x333333),
+                shininess: 15
+            });
+            
+            // Create earth mesh
+            earth = new THREE.Mesh(earthGeometry, earthMaterial);
+            scene.add(earth);
+            
+            // Load high-quality Earth texture with more reliable URLs
+            const textureLoader = new THREE.TextureLoader();
+            
+            // Add loading manager to handle errors and track loading progress
+            const loadingManager = new THREE.LoadingManager();
+            loadingManager.onLoad = function() {
+                console.log('All textures loaded');
+                document.getElementById('loadingIndicator').style.display = 'none';
+            };
+            
+            loadingManager.onProgress = function(url, itemsLoaded, itemsTotal) {
+                console.log('Loading texture: ' + url + ' (' + itemsLoaded + '/' + itemsTotal + ')');
+            };
+            
+            loadingManager.onError = function(url) {
+                console.error('Error loading texture:', url);
+                texturesLoaded++;
+                checkAllTexturesLoaded();
+            };
+            
+            textureLoader.manager = loadingManager;
+            
+            // Use more reliable texture URLs with multiple fallbacks
+            textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_atmos_2048.jpg', 
+                // Success callback
+                function(texture) {
+                    console.log('Earth texture loaded successfully');
+                    earthMaterial.map = texture;
+                    earthMaterial.color.set(0xffffff); // Reset color to white when texture is loaded
+                    earthMaterial.needsUpdate = true;
+                    texturesLoaded++;
+                    checkAllTexturesLoaded();
+                },
+                // Progress callback
+                undefined,
+                // Error callback
+                function(err) {
+                    console.error('Error loading earth texture, trying fallback 1:', err);
+                    // Try first fallback texture
+                    textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/land_ocean_ice_cloud_2048.jpg', 
+                        function(fallbackTexture) {
+                            console.log('First fallback earth texture loaded');
+                            earthMaterial.map = fallbackTexture;
+                            earthMaterial.color.set(0xffffff);
+                            earthMaterial.needsUpdate = true;
+                            texturesLoaded++;
+                            checkAllTexturesLoaded();
+                        },
+                        undefined,
+                        function(err) {
+                            console.error('Error loading fallback 1, trying fallback 2:', err);
+                            // Try second fallback texture
+                            textureLoader.load('https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg', 
+                                function(fallbackTexture2) {
+                                    console.log('Second fallback earth texture loaded');
+                                    earthMaterial.map = fallbackTexture2;
+                                    earthMaterial.color.set(0xffffff);
+                                    earthMaterial.needsUpdate = true;
+                                    texturesLoaded++;
+                                    checkAllTexturesLoaded();
+                                },
+                                undefined,
+                                function(err) {
+                                    console.error('Error loading fallback 2, trying fallback 3:', err);
+                                    // Try third fallback texture
+                                    textureLoader.load('https://cdn.jsdelivr.net/gh/mrdoob/three.js/examples/textures/planets/earth_atmos_2048.jpg', 
+                                        function(finalFallback) {
+                                            console.log('Final fallback earth texture loaded');
+                                            earthMaterial.map = finalFallback;
+                                            earthMaterial.color.set(0xffffff);
+                                            earthMaterial.needsUpdate = true;
+                                            texturesLoaded++;
+                                            checkAllTexturesLoaded();
+                                        },
+                                        undefined,
+                                        function(err) {
+                                            console.error('All earth texture fallbacks failed:', err);
+                                            // Try one last direct URL
+                                            textureLoader.load('https://i.imgur.com/jMbNWsT.jpg', 
+                                                function(imgurTexture) {
+                                                    console.log('Imgur earth texture loaded');
+                                                    earthMaterial.map = imgurTexture;
+                                                    earthMaterial.color.set(0xffffff);
+                                                    earthMaterial.needsUpdate = true;
+                                                    texturesLoaded++;
+                                                    checkAllTexturesLoaded();
+                                                },
+                                                undefined,
+                                                function(err) {
+                                                    console.error('All earth texture fallbacks failed:', err);
+                                                    // If all fallbacks fail, keep the blue color
+                                                    texturesLoaded++;
+                                                    checkAllTexturesLoaded();
+                                                }
+                                            );
+                                        }
+                                    );
+                                }
+                            );
+                        }
+                    );
+                }
+            );
+            
+            // Bump map loading with fallbacks
+            textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_normal_2048.jpg',
+                function(bumpTexture) {
+                    earthMaterial.bumpMap = bumpTexture;
+                    earthMaterial.needsUpdate = true;
+                    texturesLoaded++;
+                    checkAllTexturesLoaded();
+                },
+                undefined,
+                function(err) {
+                    console.error('Error loading bump map, trying fallback 1:', err);
+                    // Try fallback bump map
+                    textureLoader.load('https://threejs.org/examples/textures/planets/earth_normal_2048.jpg',
+                        function(fallbackBump) {
+                            earthMaterial.bumpMap = fallbackBump;
+                            earthMaterial.needsUpdate = true;
+                            texturesLoaded++;
+                            checkAllTexturesLoaded();
+                        },
+                        undefined,
+                        function(err) {
+                            console.error('Error loading bump map fallback 1, trying fallback 2:', err);
+                            // Try second fallback for bump map
+                            textureLoader.load('https://cdn.jsdelivr.net/gh/mrdoob/three.js/examples/textures/planets/earth_normal_2048.jpg',
+                                function(finalBumpFallback) {
+                                    earthMaterial.bumpMap = finalBumpFallback;
+                                    earthMaterial.needsUpdate = true;
+                                    texturesLoaded++;
+                                    checkAllTexturesLoaded();
+                                },
+                                undefined,
+                                function(err) {
+                                    console.error('All bump map fallbacks failed:', err);
+                                    // If bump map fails, just continue without it
+                                    texturesLoaded++;
+                                    checkAllTexturesLoaded();
+                                }
+                            );
+                        }
+                    );
+                }
+            );
+
+            // Create cloud layer with fallbacks
+            const cloudGeometry = new THREE.SphereGeometry(1.02, 64, 64);
+            const cloudMaterial = new THREE.MeshPhongMaterial({
+                color: 0xffffff, // White base color for clouds
+                transparent: true,
+                opacity: 0.4, // Start with lower opacity until texture loads
+                depthWrite: false
+            });
+            
+            clouds = new THREE.Mesh(cloudGeometry, cloudMaterial);
+            scene.add(clouds);
+            
+            textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_clouds_1024.png',
+                // Success callback
+                function(texture) {
+                    console.log('Cloud texture loaded successfully');
+                    cloudMaterial.map = texture;
+                    cloudMaterial.opacity = 0.8; // Increase opacity when texture loads
+                    cloudMaterial.needsUpdate = true;
+                    texturesLoaded++;
+                    checkAllTexturesLoaded();
+                },
+                // Progress callback
+                undefined,
+                // Error callback
+                function(err) {
+                    console.error('Error loading cloud texture, trying fallback 1:', err);
+                    // Try fallback cloud texture
+                    textureLoader.load('https://threejs.org/examples/textures/planets/earth_clouds_1024.png',
+                        function(fallbackCloud) {
+                            console.log('Fallback cloud texture loaded');
+                            cloudMaterial.map = fallbackCloud;
+                            cloudMaterial.opacity = 0.8;
+                            cloudMaterial.needsUpdate = true;
+                            texturesLoaded++;
+                            checkAllTexturesLoaded();
+                        },
+                        undefined,
+                        function(err) {
+                            console.error('Error loading cloud fallback 1, trying fallback 2:', err);
+                            // Try second fallback for cloud texture
+                            textureLoader.load('https://cdn.jsdelivr.net/gh/mrdoob/three.js/examples/textures/planets/earth_clouds_1024.png',
+                                function(finalCloudFallback) {
+                                    console.log('Final fallback cloud texture loaded');
+                                    cloudMaterial.map = finalCloudFallback;
+                                    cloudMaterial.opacity = 0.8;
+                                    cloudMaterial.needsUpdate = true;
+                                    texturesLoaded++;
+                                    checkAllTexturesLoaded();
+                                },
+                                undefined,
+                                function(err) {
+                                    console.error('All cloud texture fallbacks failed:', err);
+                                    // Try one last direct URL
+                                    textureLoader.load('https://i.imgur.com/Zg3Zjap.png', 
+                                        function(imgurCloud) {
+                                            console.log('Imgur cloud texture loaded');
+                                            cloudMaterial.map = imgurCloud;
+                                            cloudMaterial.opacity = 0.8;
+                                            cloudMaterial.needsUpdate = true;
+                                            texturesLoaded++;
+                                            checkAllTexturesLoaded();
+                                        },
+                                        undefined,
+                                        function(err) {
+                                            console.error('All cloud texture fallbacks failed:', err);
+                                            // If cloud texture fails, just use the white material
+                                            texturesLoaded++;
+                                            checkAllTexturesLoaded();
+                                        }
+                                    );
+                                }
+                            );
+                        }
+                    );
+                }
+            );
+            
+            // Function to check if all textures are loaded
+            function checkAllTexturesLoaded() {
+                if (texturesLoaded >= totalTextures) {
+                    document.getElementById('loadingIndicator').style.display = 'none';
+                    
+                    // If Earth texture didn't load, create a simple procedural texture
+                    if (!earthMaterial.map) {
+                        console.log('Creating procedural Earth texture as last resort');
+                        createProceduralEarthTexture();
+                    }
+                }
+            }
+            
+            // Create a simple procedural texture for Earth as last resort
+            function createProceduralEarthTexture() {
+                const canvas = document.createElement('canvas');
+                canvas.width = 1024;
+                canvas.height = 512;
+                const ctx = canvas.getContext('2d');
+                
+                // Fill with blue for oceans
+                ctx.fillStyle = '#1a4d7e';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Add some green continents (very simplified)
+                ctx.fillStyle = '#2d6a4f';
+                
+                // North America
+                ctx.beginPath();
+                ctx.moveTo(200, 150);
+                ctx.lineTo(280, 120);
+                ctx.lineTo(350, 150);
+                ctx.lineTo(330, 220);
+                ctx.lineTo(250, 260);
+                ctx.lineTo(200, 220);
+                ctx.fill();
+                
+                // South America
+                ctx.beginPath();
+                ctx.moveTo(300, 280);
+                ctx.lineTo(350, 300);
+                ctx.lineTo(330, 380);
+                ctx.lineTo(280, 420);
+                ctx.lineTo(260, 380);
+                ctx.lineTo(280, 320);
+                ctx.fill();
+                
+                // Europe and Africa
+                ctx.beginPath();
+                ctx.moveTo(500, 150);
+                ctx.lineTo(580, 130);
+                ctx.lineTo(600, 200);
+                ctx.lineTo(580, 300);
+                ctx.lineTo(530, 350);
+                ctx.lineTo(480, 320);
+                ctx.lineTo(470, 250);
+                ctx.lineTo(490, 180);
+                ctx.fill();
+                
+                // Asia
+                ctx.beginPath();
+                ctx.moveTo(600, 150);
+                ctx.lineTo(700, 130);
+                ctx.lineTo(750, 180);
+                ctx.lineTo(720, 250);
+                ctx.lineTo(650, 270);
+                ctx.lineTo(600, 220);
+                ctx.fill();
+                
+                // Australia
+                ctx.beginPath();
+                ctx.moveTo(750, 320);
+                ctx.lineTo(800, 310);
+                ctx.lineTo(820, 350);
+                ctx.lineTo(790, 380);
+                ctx.lineTo(750, 370);
+                ctx.fill();
+                
+                // Antarctica (white)
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(512, 450, 80, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Create texture from canvas
+                const texture = new THREE.CanvasTexture(canvas);
+                earthMaterial.map = texture;
+                earthMaterial.color.set(0xffffff);
+                earthMaterial.needsUpdate = true;
+            }
+            
+            // Add Antarctica highlight
+            // Using a more precise geometry for Antarctica (around the south pole)
+            const antarcticaGeometry = new THREE.SphereGeometry(1.015, 64, 64, 0, Math.PI * 2, Math.PI * 0.75, Math.PI * 0.25);
+            const antarcticaMaterial = new THREE.MeshPhongMaterial({
+                color: 0x0088ff,
+                transparent: true,
+                opacity: 0.4,
+                side: THREE.DoubleSide,
+                depthWrite: false
+            });
+            
+            antarctica = new THREE.Mesh(antarcticaGeometry, antarcticaMaterial);
+            scene.add(antarctica);
+
+            // Add flight paths
+            addFlightPaths();
+
+            // Add orbit controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.rotateSpeed = 0.5;
+            controls.autoRotate = autoRotate;
+            controls.autoRotateSpeed = 0.5;
+            controls.minDistance = 1.5;
+            controls.maxDistance = 5;
+            
+            // Event listeners
+            window.addEventListener('resize', onWindowResize, false);
+            window.addEventListener('mousemove', onMouseMove, false);
+            
+            document.getElementById('rotationSpeed').addEventListener('input', updateRotationSpeed);
+            document.getElementById('cloudOpacity').addEventListener('input', updateCloudOpacity);
+            document.getElementById('antarcticaOpacity').addEventListener('input', updateAntarcticaOpacity);
+            document.getElementById('toggleRotation').addEventListener('click', toggleRotation);
+
+            animate();
+        }
+
+        // Add flight paths
+        function addFlightPaths() {
+            // Define flight paths
+            const pathData = [
+                { 
+                    start: { lat: 40.7128, lng: -74.0060 }, // New York
+                    end: { lat: 48.8566, lng: 2.3522 }, // Paris
+                    color: 0xffcc00, // Yellow
+                    name: "AA-845"
+                },
+                { 
+                    start: { lat: 35.6762, lng: 139.6503 }, // Tokyo
+                    end: { lat: 22.3193, lng: 114.1694 }, // Hong Kong
+                    color: 0x00ccff, // Cyan
+                    name: "JL-748"
+                },
+                { 
+                    start: { lat: -33.8688, lng: 151.2093 }, // Sydney
+                    end: { lat: 1.3521, lng: 103.8198 }, // Singapore
+                    color: 0xff66cc, // Pink
+                    name: "ML-131"
+                },
+                { 
+                    start: { lat: 4.7110, lng: -74.0721 }, // Bogotá
+                    end: { lat: -34.6037, lng: -58.3816 }, // Buenos Aires
+                    color: 0x66ff99, // Green
+                    name: "ML-356"
+                }
+            ];
+
+            flightPaths = pathData.map(path => {
+                const curve = createCurveFromLatLng(path.start, path.end);
+                const curvePoints = curve.getPoints(100);
+                
+                // Create the path line
+                const curveGeometry = new THREE.BufferGeometry().setFromPoints(curvePoints);
+                const curveMaterial = new THREE.LineBasicMaterial({ 
+                    color: path.color,
+                    linewidth: 3,
+                    transparent: true,
+                    opacity: 0.8
+                });
+                
+                const curveObject = new THREE.Line(curveGeometry, curveMaterial);
+                scene.add(curveObject);
+
+                // Add animated point along the path
+                const pointGeometry = new THREE.SphereGeometry(0.015, 16, 16);
+                const pointMaterial = new THREE.MeshBasicMaterial({ 
+                    color: path.color,
+                    transparent: true,
+                    opacity: 0.9
+                });
+                
+                const point = new THREE.Mesh(pointGeometry, pointMaterial);
+                scene.add(point);
+
+                // Add glow effect to the point
+                const glowGeometry = new THREE.SphereGeometry(0.025, 16, 16);
+                const glowMaterial = new THREE.MeshBasicMaterial({ 
+                    color: path.color,
+                    transparent: true,
+                    opacity: 0.4
+                });
+                
+                const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+                scene.add(glow);
+
+                // Add markers for start and end points
+                const startMarker = addMarker(path.start, 0.02, path.color, path.name);
+                const endMarker = addMarker(path.end, 0.02, path.color);
+                
+                markers.push(startMarker, endMarker);
+
+                return {
+                    path: curveObject,
+                    point: point,
+                    glow: glow,
+                    curve: curve,
+                    progress: Math.random(), // Random starting position
+                    speed: 0.001 + Math.random() * 0.001 // Slightly different speeds
+                };
+            });
+        }
+
+        // Create curved flight path
+        function createCurveFromLatLng(start, end) {
+            const startPos = latLngToVector3(start.lat, start.lng);
+            const endPos = latLngToVector3(end.lat, end.lng);
+            
+            // Calculate middle control point
+            const midPoint = new THREE.Vector3().addVectors(startPos, endPos).multiplyScalar(0.5);
+            const distance = startPos.distanceTo(endPos);
+            
+            // Push the middle point outward to create an arc
+            midPoint.normalize().multiplyScalar(1 + distance * 0.3);
+            
+            // Create a quadratic bezier curve
+            const curve = new THREE.QuadraticBezierCurve3(
+                startPos,
+                midPoint,
+                endPos
+            );
+            
+            return curve;
+        }
+
+        // Convert latitude/longitude to 3D coordinates
+        function latLngToVector3(lat, lng) {
+            const phi = (90 - lat) * Math.PI / 180;
+            const theta = (lng + 180) * Math.PI / 180;
+            
+            const x = -1 * Math.sin(phi) * Math.cos(theta);
+            const y = Math.cos(phi);
+            const z = Math.sin(phi) * Math.sin(theta);
+            
+            return new THREE.Vector3(x, y, z);
+        }
+
+        // Convert 3D coordinates to latitude/longitude
+        function vector3ToLatLng(position) {
+            const normalized = position.clone().normalize();
+            
+            // Calculate latitude
+            const lat = 90 - (Math.acos(normalized.y) * 180 / Math.PI);
+            
+            // Calculate longitude
+            let lng = (Math.atan2(normalized.z, normalized.x) * 180 / Math.PI) + 90;
+            if (lng > 180) lng -= 360;
+            
+            return { lat, lng };
+        }
+
+        // Add marker at a specific lat/lng
+        function addMarker(latLng, size, color, label) {
+            const position = latLngToVector3(latLng.lat, latLng.lng);
+            
+            // Create marker
+            const markerGeometry = new THREE.SphereGeometry(size, 16, 16);
+            const markerMaterial = new THREE.MeshBasicMaterial({ color: color });
+            const marker = new THREE.Mesh(markerGeometry, markerMaterial);
+            marker.position.copy(position);
+            scene.add(marker);
+            
+            // Add ring around marker
+            if (label) {
+                const ringGeometry = new THREE.RingGeometry(size * 1.5, size * 1.8, 16);
+                const ringMaterial = new THREE.MeshBasicMaterial({ 
+                    color: color, 
+                    transparent: true, 
+                    opacity: 0.6,
+                    side: THREE.DoubleSide
+                });
+                
+                const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+                ring.position.copy(position);
+                ring.lookAt(0, 0, 0);
+                scene.add(ring);
+                
+                // Store the label with the marker
+                marker.userData = { label: label, position: latLng };
+            }
+            
+            return marker;
+        }
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Update rotation based on speed slider
+            const speedValue = parseFloat(document.getElementById('rotationSpeed').value);
+            rotationSpeed = speedValue * 0.001;
+            
+            if (autoRotate) {
+                earth.rotation.y += rotationSpeed;
+                clouds.rotation.y += rotationSpeed * 1.1; // Clouds rotate slightly faster
+                antarctica.rotation.y += rotationSpeed; // Keep Antarctica in sync with Earth
+            }
+            
+            // Update flight paths and animated points
+            flightPaths.forEach(item => {
+                // Update progress along the path
+                item.progress += item.speed * speedValue;
+                if (item.progress > 1) item.progress = 0;
+                
+                // Get position along the curve
+                const position = item.curve.getPointAt(item.progress);
+                
+                // Update point and glow positions
+                item.point.position.copy(position);
+                item.glow.position.copy(position);
+                
+                // Pulse effect for glow
+                const scale = 1 + 0.2 * Math.sin(Date.now() * 0.005);
+                item.glow.scale.set(scale, scale, scale);
+            });
+            
+            // Update controls
+            controls.update();
+            
+            // Render scene
+            renderer.render(scene, camera);
+        }
+
+        // Handle window resize
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        // Handle mouse movement for raycasting
+        function onMouseMove(event) {
+            // Calculate mouse position in normalized device coordinates
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            
+            // Update the raycaster
+            raycaster.setFromCamera(mouse, camera);
+            
+            // Check for intersections with Earth
+            const intersects = raycaster.intersectObject(earth);
+            
+            if (intersects.length > 0) {
+                // Get the point of intersection
+                const point = intersects[0].point;
+                
+                // Convert to lat/lng
+                const latLng = vector3ToLatLng(point);
+                
+                // Update display
+                document.getElementById('latDisplay').textContent = latLng.lat.toFixed(2) + '°';
+                document.getElementById('lngDisplay').textContent = latLng.lng.toFixed(2) + '°';
+            }
+        }
+
+        // Update rotation speed
+        function updateRotationSpeed(e) {
+            const value = e.target.value;
+            document.getElementById('rotationSpeedValue').textContent = value;
+            controls.autoRotateSpeed = value * 2;
+        }
+
+        // Update cloud opacity
+        function updateCloudOpacity(e) {
+            const value = e.target.value;
+            document.getElementById('cloudOpacityValue').textContent = value;
+            clouds.material.opacity = value;
+        }
+        
+        // Update Antarctica highlight opacity
+        function updateAntarcticaOpacity(e) {
+            const value = e.target.value;
+            document.getElementById('antarcticaOpacityValue').textContent = value;
+            antarctica.material.opacity = value;
+        }
+        
+        // Toggle auto-rotation
+        function toggleRotation() {
+            autoRotate = !autoRotate;
+            controls.autoRotate = autoRotate;
+            
+            const button = document.getElementById('toggleRotation');
+            const buttonText = document.getElementById('rotationButtonText');
+            const icon = button.querySelector('i');
+            
+            if (autoRotate) {
+                buttonText.textContent = 'Pause Rotation';
+                icon.className = 'fas fa-pause mr-2';
+                button.classList.remove('bg-green-600', 'hover:bg-green-700');
+                button.classList.add('bg-blue-600', 'hover:bg-blue-700');
+            } else {
+                buttonText.textContent = 'Resume Rotation';
+                icon.className = 'fas fa-play mr-2';
+                button.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                button.classList.add('bg-green-600', 'hover:bg-green-700');
+            }
+        }
+
+        // Initialize the application
+        init();
+
+        // Mobile controls panel toggle
+        const controlsPanel = document.querySelector('.controls-panel');
+        const controlsHandle = document.querySelector('.controls-handle');
+
+        if (controlsHandle) {
+            controlsHandle.addEventListener('click', () => {
+                controlsPanel.classList.toggle('expanded');
+            });
+
+            // Close panel when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!controlsPanel.contains(e.target)) {
+                    controlsPanel.classList.remove('expanded');
+                }
+            });
+        }
+    </script>
+</body>
+</html>
