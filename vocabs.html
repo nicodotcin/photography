@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocabulary Trainer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin: 20px 0;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .stats {
+            color: #666;
+            font-size: 0.9em;
+        }
+        #addVocabForm {
+            display: none;
+            margin-top: 20px;
+        }
+        input[type="text"] {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>Vocabulary Trainer</h2>
+        <div id="vocabCard">
+            <h3 id="word">Click Start to begin</h3>
+            <input type="text" id="answer" placeholder="Type your answer" style="display: none">
+            <p id="feedback"></p>
+            <p class="stats" id="stats"></p>
+        </div>
+        <div class="controls">
+            <button id="startBtn">Start</button>
+            <button id="checkBtn" style="display: none">Check</button>
+            <button id="nextBtn" style="display: none">Next</button>
+            <button id="showAddForm">Add New Vocab</button>
+        </div>
+    </div>
+
+    <div id="addVocabForm" class="card">
+        <h3>Add New Vocabulary</h3>
+        <input type="text" id="langA" placeholder="Language A">
+        <input type="text" id="langB" placeholder="Language B">
+        <button id="saveVocab">Save</button>
+    </div>
+
+    <script>
+        let vocabularies = [];
+        let currentWord = null;
+
+        // Load vocabularies from file
+        async function loadVocabularies() {
+            try {
+                const response = await fetch('vocab_storage.txt');
+                const text = await response.text();
+                vocabularies = text.split('\n')
+                    .filter(line => line.trim())
+                    .map(line => {
+                        const [wordA, wordB, right, wrong] = line.split(',');
+                        return {
+                            wordA,
+                            wordB,
+                            right: parseInt(right) || 0,
+                            wrong: parseInt(wrong) || 0
+                        };
+                    });
+            } catch (error) {
+                console.error('Error loading vocabularies:', error);
+            }
+        }
+
+        // Save vocabularies to file
+        async function saveVocabularies() {
+            const content = vocabularies.map(v => 
+                `${v.wordA},${v.wordB},${v.right},${v.wrong}`
+            ).join('\n');
+
+            try {
+                await fetch('/save-vocab', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'text/plain'},
+                    body: content
+                });
+            } catch (error) {
+                console.error('Error saving vocabularies:', error);
+            }
+        }
+
+        function startTraining() {
+            if (vocabularies.length === 0) return;
+            currentWord = vocabularies[Math.floor(Math.random() * vocabularies.length)];
+            document.getElementById('word').textContent = currentWord.wordA;
+            document.getElementById('answer').style.display = 'block';
+            document.getElementById('answer').value = '';
+            document.getElementById('checkBtn').style.display = 'inline';
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('feedback').textContent = '';
+            updateStats();
+        }
+
+        function checkAnswer() {
+            const answer = document.getElementById('answer').value.trim().toLowerCase();
+            const correct = answer === currentWord.wordB.toLowerCase();
+            
+            if (correct) {
+                currentWord.right++;
+                document.getElementById('feedback').textContent = 'Correct!';
+            } else {
+                currentWord.wrong++;
+                document.getElementById('feedback').textContent = `Incorrect. The answer is: ${currentWord.wordB}`;
+            }
+            
+            document.getElementById('checkBtn').style.display = 'none';
+            document.getElementById('nextBtn').style.display = 'inline';
+            updateStats();
+            saveVocabularies();
+        }
+
+        function updateStats() {
+            if (currentWord) {
+                const total = currentWord.right + currentWord.wrong;
+                const percentage = total > 0 ? 
+                    Math.round(currentWord.right / total * 100) : 0;
+                document.getElementById('stats').textContent = 
+                    `Success rate: ${percentage}% (${currentWord.right} right, ${currentWord.wrong} wrong)`;
+            }
+        }
+
+        // Event Listeners
+        document.getElementById('startBtn').addEventListener('click', startTraining);
+        document.getElementById('checkBtn').addEventListener('click', checkAnswer);
+        document.getElementById('nextBtn').addEventListener('click', startTraining);
+        
+        document.getElementById('showAddForm').addEventListener('click', () => {
+            document.getElementById('addVocabForm').style.display = 'block';
+        });
+
+        document.getElementById('saveVocab').addEventListener('click', async () => {
+            const langA = document.getElementById('langA').value.trim();
+            const langB = document.getElementById('langB').value.trim();
+            
+            if (langA && langB) {
+                vocabularies.push({ wordA: langA, wordB: langB, right: 0, wrong: 0 });
+                await saveVocabularies();
+                document.getElementById('langA').value = '';
+                document.getElementById('langB').value = '';
+                document.getElementById('addVocabForm').style.display = 'none';
+            }
+        });
+
+        // Initialize
+        loadVocabularies();
+    </script>
+</body>
+</html>

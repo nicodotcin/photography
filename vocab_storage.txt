@@ -1,0 +1,27 @@
+hello,hola,5,2
+goodbye,adiós,3,1
+thank you,gracias,4,0
+please,por favor,2,1
+Inference,Schlussfolgerung,0,0
+Benign,gutartig,0,0
+Endowance,Ausstattung,0,0
+Deterrence,Abschreckung,0,0
+Calamity,Katastrophe,0,0
+Vulture,Geier,0,0
+Maggot,Made,0,0
+Succinct,prägnant,0,0
+Inertia,Trägheit,0,0
+Ample,reichlich,0,0
+Compartmentalization,Abschottung,0,0
+Jeopardize,gefährden,0,0
+Mundane,alltäglich,0,0
+Voracious,gefräßig,0,0
+Affluent,wohlhabend,0,0
+Stunted,verkümmert,0,0
+Resentment,Groll,0,0
+Hyperstition,Hyperstition,0,0
+Detrimental,schädlich,0,0
+Fleeting,flüchtig,0,0
+Instantiated,instanziiert,0,0
+Proliferation,Verbreitung,0,0
+Invigorating,belebend,0,0
