@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>World Explorer – Tax · Passport · Weather</title>
+<style>
+html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;}
+:root{
+  --bg:#fff;--bg2:#f5f5f5;--bg-info:#e3f2fd;
+  --tx:#1a1a1a;--tx2:#666;--tx3:#999;--tx-info:#1976d2;
+  --bd:#e0e0e0;--bd2:#ccc;--bd-info:#1976d2;
+  --r:4px;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+}
+*{box-sizing:border-box;}
+#wrap{position:relative;width:100%;height:100vh;background:var(--bg);overflow:hidden;font-family:var(--font);}
+
+/* ── Mode bar (top centre) ── */
+#mode-bar{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:25;
+  display:flex;background:var(--bg2);border:0.5px solid var(--bd);border-radius:20px;overflow:hidden;}
+.mode-btn{padding:7px 18px;font-size:12px;font-weight:600;border:none;cursor:pointer;
+  background:transparent;color:var(--tx2);transition:all .15s;letter-spacing:.3px;}
+.mode-btn.active{background:var(--bg-info);color:var(--tx-info);}
+
+/* ── Side panel ── */
+#side-panel{position:absolute;top:0;left:0;bottom:0;width:252px;z-index:15;
+  display:flex;flex-direction:column;background:var(--bg);border-right:0.5px solid var(--bd);overflow:hidden;}
+#map-area{position:absolute;left:252px;right:0;top:0;bottom:0;overflow:hidden;background:var(--bg);}
+#map-svg{width:100%;height:100%;display:block;cursor:grab;}
+#tooltip{position:absolute;display:none;background:var(--bg);border:0.5px solid var(--bd2);
+  border-radius:var(--r);padding:10px 14px;font-size:12px;pointer-events:none;z-index:30;max-width:240px;}
+
+/* ── Sub-switch (inside panel) ── */
+#sub-bar{display:flex;border-bottom:0.5px solid var(--bd);flex-shrink:0;}
+.sub-btn{flex:1;padding:6px 2px;font-size:10px;font-weight:500;border:none;cursor:pointer;
+  background:transparent;color:var(--tx2);border-bottom:2px solid transparent;}
+.sub-btn.active{color:var(--tx-info);border-bottom-color:var(--bd-info);background:var(--bg-info);}
+
+/* ── Weather month slider ── */
+#weather-ctrl{padding:8px 10px;border-bottom:0.5px solid var(--bd);flex-shrink:0;display:none;}
+#weather-ctrl.visible{display:block;}
+.month-slider-wrap{display:flex;align-items:center;gap:6px;margin-top:4px;}
+#month-slider{flex:1;height:3px;accent-color:var(--tx-info);}
+#month-label{font-size:11px;font-weight:600;color:var(--tx-info);min-width:28px;text-align:right;}
+.wc-tabs{display:flex;gap:3px;margin-bottom:6px;}
+.wc-tab{padding:3px 8px;font-size:10px;border:0.5px solid var(--bd2);border-radius:var(--r);
+  background:transparent;color:var(--tx2);cursor:pointer;}
+.wc-tab.active{background:var(--bg-info);color:var(--tx-info);border-color:var(--bd-info);}
+
+/* ── Search ── */
+#search-wrap{padding:8px;flex-shrink:0;}
+#search-input{width:100%;padding:6px 9px;font-size:12px;border:0.5px solid var(--bd2);
+  border-radius:var(--r);background:var(--bg);color:var(--tx);}
+
+/* ── Filter ── */
+#filter-section{padding:0 8px 6px;border-bottom:0.5px solid var(--bd);flex-shrink:0;}
+.filter-label{font-size:10px;color:var(--tx2);margin:5px 0 3px;}
+.range-row{display:flex;gap:4px;align-items:center;}
+.range-row input[type=number]{width:48px;padding:3px 5px;font-size:11px;
+  border:0.5px solid var(--bd2);border-radius:var(--r);background:var(--bg);color:var(--tx);}
+.range-row span{font-size:11px;color:var(--tx3);}
+#filter-toggle{width:100%;padding:5px;font-size:11px;font-weight:500;
+  border:0.5px solid var(--bd2);border-radius:var(--r);background:transparent;color:var(--tx2);cursor:pointer;margin-top:4px;}
+#filter-body{display:none;}
+#filter-body.open{display:block;}
+
+/* ── Sort ── */
+#sort-bar{display:flex;gap:3px;padding:5px 8px;border-bottom:0.5px solid var(--bd);flex-wrap:wrap;flex-shrink:0;}
+.sort-btn{padding:3px 6px;font-size:10px;border:0.5px solid var(--bd2);border-radius:var(--r);
+  background:transparent;color:var(--tx2);cursor:pointer;}
+.sort-btn.active{background:var(--bg-info);color:var(--tx-info);border-color:var(--bd-info);}
+
+/* ── Results ── */
+#result-count{padding:4px 10px;font-size:10px;color:var(--tx2);border-bottom:0.5px solid var(--bd);flex-shrink:0;}
+#results-list{overflow-y:auto;flex:1;}
+.res-item{padding:7px 10px;border-bottom:0.5px solid var(--bd);cursor:pointer;}
+.res-item:hover{background:var(--bg2);}
+.res-item.pinned{background:var(--bg-info);}
+.res-name{font-size:12px;font-weight:500;color:var(--tx);margin-bottom:3px;}
+.res-grid{display:grid;grid-template-columns:1fr auto;gap:1px 8px;font-size:10px;color:var(--tx2);}
+.passport-rank{font-size:10px;color:var(--tx3);margin-top:2px;}
+/* passport bar */
+.visa-bar-wrap{margin-top:3px;height:4px;background:var(--bg2);border-radius:2px;overflow:hidden;}
+.visa-bar{height:4px;border-radius:2px;background:linear-gradient(90deg,#1976d2,#42a5f5);}
+/* weather mini bars */
+.w-month-bar{display:flex;gap:1px;margin-top:3px;height:18px;align-items:flex-end;}
+.w-month-bar div{flex:1;min-height:1px;border-radius:1px;}
+
+/* ── Zoom / controls ── */
+#zoom-controls{position:absolute;bottom:44px;right:12px;z-index:10;display:flex;flex-direction:column;gap:4px;}
+.zb{width:30px;height:30px;border:0.5px solid var(--bd2);border-radius:var(--r);background:var(--bg);
+  color:var(--tx);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+#legend-wrap{position:absolute;bottom:14px;right:12px;display:flex;align-items:center;gap:6px;
+  font-size:10px;color:var(--tx2);}
+</style>
+</head>
+<body>
+<div id="wrap">
+
+<!-- TOP MODE BAR -->
+<div id="mode-bar">
+  <button class="mode-btn active" data-mode="tax">🏦 Steuern</button>
+  <button class="mode-btn" data-mode="passport">🛂 Reisepass</button>
+  <button class="mode-btn" data-mode="weather">☀️ Wetter</button>
+</div>
+
+<!-- SIDE PANEL -->
+<div id="side-panel">
+  <!-- sub-switches: tax mode -->
+  <div id="sub-bar">
+    <button class="sub-btn active" data-key="effective">Ø Effektiv</button>
+    <button class="sub-btn" data-key="capital">Kapital</button>
+    <button class="sub-btn" data-key="corporate">Körper.</button>
+    <button class="sub-btn" data-key="income">Max.Eink.</button>
+  </div>
+
+  <!-- weather controls -->
+  <div id="weather-ctrl">
+    <div class="wc-tabs">
+      <button class="wc-tab active" data-wkey="sun">☀ Sonne</button>
+      <button class="wc-tab" data-wkey="rain">🌧 Regen</button>
+      <button class="wc-tab" data-wkey="temp">🌡 Temp</button>
+    </div>
+    <div class="month-slider-wrap">
+      <span style="font-size:10px;color:var(--tx2);">Monat:</span>
+      <input id="month-slider" type="range" min="0" max="11" value="0"/>
+      <span id="month-label">Jan</span>
+    </div>
+  </div>
+
+  <div id="search-wrap">
+    <input id="search-input" type="text" placeholder="Land suchen…" autocomplete="off"/>
+  </div>
+
+  <div id="filter-section">
+    <button id="filter-toggle">▸ Filter</button>
+    <div id="filter-body" id="filter-body">
+      <!-- dynamically filled per mode -->
+    </div>
+  </div>
+
+  <div id="sort-bar">
+    <span style="font-size:10px;color:var(--tx2);align-self:center;">Sort:</span>
+    <button class="sort-btn active" data-sort="primary-asc">↑</button>
+    <button class="sort-btn" data-sort="primary-desc">↓</button>
+    <button class="sort-btn" data-sort="name-asc">A–Z</button>
+  </div>
+
+  <div id="result-count"></div>
+  <div id="results-list"></div>
+</div>
+
+<!-- MAP -->
+<div id="map-area">
+  <svg id="map-svg"></svg>
+  <div id="tooltip"></div>
+  <div id="zoom-controls">
+    <button class="zb" id="zoom-in">+</button>
+    <button class="zb" id="zoom-out">−</button>
+    <button class="zb" id="zoom-reset" style="font-size:11px;">↺</button>
+    <button class="zb" id="dark-toggle" style="font-size:11px;">◐</button>
+  </div>
+  <div id="legend-wrap">
+    <span id="leg-lo">0</span>
+    <div id="leg-bar" style="width:80px;height:8px;border-radius:3px;"></div>
+    <span id="leg-hi">100%+</span>
+  </div>
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════════════════
+
+// VISA-FREE from CSV (country english name → count)
+const VISA_FREE_RAW = {
+  "Singapore":192,"Japan":187,"South Korea":187,"United Arab Emirates":187,
+  "Sweden":186,"Belgium":185,"Denmark":185,"Finland":185,"France":185,
+  "Germany":185,"Ireland":185,"Italy":185,"Luxembourg":185,"Netherlands":185,
+  "Norway":185,"Spain":185,"Switzerland":185,"Austria":184,"Greece":184,
+  "Malta":184,"Portugal":184,"Hungary":183,"Malaysia":183,"Poland":183,
+  "United Kingdom":183,"Australia":182,"Canada":182,"Czech Republic":182,
+  "Latvia":182,"New Zealand":182,"Slovakia":182,"Slovenia":182,"Croatia":181,
+  "Estonia":181,"Liechtenstein":180,"Lithuania":180,"Iceland":179,
+  "United States":179,"Bulgaria":177,"Romania":177,"Monaco":176,"Chile":174,
+  "Cyprus":174,"Hong Kong":174,"Andorra":169,"Argentina":168,"Brazil":168,
+  "Israel":166,"San Marino":166,"Barbados":163,"Brunei":163,"Bahamas":158,
+  "Saint Kitts and Nevis":157,"Saint Vincent and the Grenadines":157,
+  "Mexico":156,"Uruguay":155,"Antigua and Barbuda":154,"Seychelles":154,
+  "Vatican City":151,"Costa Rica":148,"Grenada":147,"Mauritius":147,
+  "Panama":147,"Dominica":145,"Paraguay":145,"Trinidad and Tobago":145,
+  "Saint Lucia":144,"Ukraine":142,"Macau":141,"Peru":141,"Serbia":135,
+  "Taiwan":134,"Guatemala":132,"Solomon Islands":132,"El Salvador":131,
+  "Colombia":130,"Honduras":129,"Samoa":129,"Marshall Islands":127,
+  "Tonga":127,"Montenegro":126,"North Macedonia":126,"Nicaragua":125,
+  "Tuvalu":125,"Kiribati":122,"Albania":121,"Bosnia and Herzegovina":121,
+  "Georgia":120,"Federated States of Micronesia":120,"Palau":120,
+  "Moldova":119,"Venezuela":116,"Russia":113,"Turkey":113,"Qatar":111,
+  "Belize":100,"South Africa":100,"Kuwait":96,"Ecuador":93,"Maldives":92,
+  "Timor-Leste":92,"Guyana":88,"Bahrain":87,"Fiji":87,"Saudi Arabia":87,
+  "Vanuatu":87,"Nauru":86,"Jamaica":85,"Oman":84,"Papua New Guinea":84,
+  "China":82,"Botswana":81,"Kazakhstan":78,"Belarus":77,"Bolivia":77,
+  "Thailand":76,"Suriname":75,"Namibia":74,"Lesotho":73,
+  "Dominican Republic":71,"Eswatini":71,"Morocco":71,"Indonesia":70,
+  "Malawi":70,"Kenya":69,"Gambia":68,"Tanzania":68,"Azerbaijan":67,
+  "Ghana":67,"Rwanda":66,"Tunisia":66,"Benin":65,"Philippines":65,
+  "Uganda":65,"Armenia":64,"Mongolia":64,"Zambia":64,"Cape Verde":63,
+  "Sierra Leone":62,"Zimbabwe":61,"Kyrgyzstan":59,"Mozambique":59,
+  "Uzbekistan":59,"São Tomé and Príncipe":58,"Togo":57,"Burkina Faso":56,
+  "Cuba":56,"India":56,"Senegal":56,"Algeria":55,"Gabon":55,
+  "Ivory Coast":55,"Madagascar":55,"Mauritania":55,"Niger":54,"Mali":53,
+  "Tajikistan":53,"Equatorial Guinea":52,"Guinea":52,"Chad":51,
+  "Comoros":50,"Guinea-Bissau":50,"Egypt":49,"Haiti":49,"Jordan":49,
+  "Liberia":49,"Angola":48,"Burundi":48,"Central African Republic":48,
+  "Vietnam":48,"Bhutan":47,"Cambodia":47,"Cameroon":47,"Congo":46,
+  "Djibouti":45,"Laos":45,"Turkmenistan":45,"Nigeria":44,"DR Congo":43,
+  "Lebanon":43,"Ethiopia":42,"Myanmar":42,"South Sudan":41,"Sudan":41,
+  "Libya":39,"Sri Lanka":39,"Eritrea":38,"Iran":38,"Bangladesh":36,
+  "Nepal":35,"North Korea":35,"Somalia":32,"Pakistan":31,"Yemen":31,
+  "Iraq":29,"Syria":26,"Afghanistan":23
+};
+
+// German-name → English-name mapping for visa lookup
+const DE_TO_EN = {
+  "Singapur":"Singapore","Hongkong":"Hong Kong","Vereinigtes Königreich":"United Kingdom",
+  "Deutschland":"Germany","Frankreich":"France","Italien":"Italy","Spanien":"Spain",
+  "Niederlande":"Netherlands","Belgien":"Belgium","Österreich":"Austria",
+  "Schweiz":"Switzerland","Schweden":"Sweden","Norwegen":"Norway","Dänemark":"Denmark",
+  "Finnland":"Finland","Polen":"Poland","Tschechien":"Czech Republic","Ungarn":"Hungary",
+  "Rumänien":"Romania","Bulgarien":"Bulgaria","Kroatien":"Croatia","Slowenien":"Slovenia",
+  "Slowakei":"Slovakia","Estland":"Estonia","Lettland":"Latvia","Litauen":"Lithuania",
+  "Irland":"Ireland","Portugal":"Portugal","Griechenland":"Greece","Luxemburg":"Luxembourg",
+  "Monaco":"Monaco","Andorra":"Andorra","Liechtenstein":"Liechtenstein","Malta":"Malta",
+  "Zypern":"Cyprus","Macau":"Macau","Vatikan":"Vatican City","San Marino":"San Marino",
+  "Australien":"Australia","Neuseeland":"New Zealand","Kanada":"Canada","USA":"United States",
+  "Japan":"Japan","Südkorea":"South Korea","Emirate":"United Arab Emirates",
+  "Katar":"Qatar","Kuwait":"Kuwait","Saudi-Arabien":"Saudi Arabia","Bahrain":"Bahrain",
+  "Israel":"Israel","Türkei":"Turkey","Russland":"Russia","Ukraine":"Ukraine",
+  "Georgien":"Georgia","Armenien":"Armenia","Aserbaidschan":"Azerbaijan",
+  "Kasachstan":"Kazakhstan","Usbekistan":"Uzbekistan","Kirgisistan":"Kyrgyzstan",
+  "Tadschikistan":"Tajikistan","Turkmenistan":"Turkmenistan","Mongolei":"Mongolia",
+  "China":"China","Vietnam":"Vietnam","Thailand":"Thailand","Malaysia":"Malaysia",
+  "Indonesien":"Indonesia","Philippinen":"Philippines","Indien":"India",
+  "Pakistan":"Pakistan","Bangladesch":"Bangladesh","Sri Lanka":"Sri Lanka",
+  "Nepal":"Nepal","Brunei":"Brunei","Myanmar":"Myanmar","Kambodscha":"Cambodia",
+  "Laos":"Laos","Malediven":"Maldives","Weißrussland":"Belarus","Moldau":"Moldova",
+  "Serbien":"Serbia","Nordmazedonien":"North Macedonia","Albanien":"Albania",
+  "Montenegro":"Montenegro","Bosnien-Herzegowina":"Bosnia and Herzegovina",
+  "Kosovo":"Kosovo","Brasilien":"Brazil","Argentinien":"Argentina","Chile":"Chile",
+  "Peru":"Peru","Kolumbien":"Colombia","Venezuela":"Venezuela","Bolivien":"Bolivia",
+  "Ecuador":"Ecuador","Paraguay":"Paraguay","Uruguay":"Uruguay","Guyana":"Guyana",
+  "Suriname":"Suriname","Panama":"Panama","Costa Rica":"Costa Rica",
+  "Guatemala":"Guatemala","Honduras":"Honduras","El Salvador":"El Salvador",
+  "Nicaragua":"Nicaragua","Mexiko":"Mexico","Kuba":"Cuba","Jamaika":"Jamaica",
+  "Bahamas":"Bahamas","Barbados":"Barbados","Trinidad & Tobago":"Trinidad and Tobago",
+  "Grenada":"Grenada","St. Kitts & Nevis":"Saint Kitts and Nevis",
+  "St. Lucia":"Saint Lucia","St. Vincent":"Saint Vincent and the Grenadines",
+  "Antigua & Barbuda":"Antigua and Barbuda","Dominica":"Dominica",
+  "Belize":"Belize","Südafrika":"South Africa","Nigeria":"Nigeria",
+  "Kenia":"Kenya","Äthiopien":"Ethiopia","Tansania":"Tanzania","Ghana":"Ghana",
+  "Ägypten":"Egypt","Marokko":"Morocco","Algerien":"Algeria","Tunesien":"Tunisia",
+  "Libyen":"Libya","Sudan":"Sudan","Angola":"Angola","Mosambik":"Mozambique",
+  "Simbabwe":"Zimbabwe","Sambia":"Zambia","Botswana":"Botswana","Namibia":"Namibia",
+  "Ruanda":"Rwanda","Uganda":"Uganda","Senegal":"Senegal","Kamerun":"Cameroon",
+  "Elfenbeinküste":"Ivory Coast","Mali":"Mali","Burkina Faso":"Burkina Faso",
+  "Niger":"Niger","Tschad":"Chad","Somalia":"Somalia","Eritrea":"Eritrea",
+  "Dschibuti":"Djibouti","Madagaskar":"Madagascar","Mauritius":"Mauritius",
+  "Seychellen":"Seychelles","Kap Verde":"Cape Verde","Gambia":"Gambia",
+  "Sierra Leone":"Sierra Leone","Liberia":"Liberia","Guinea":"Guinea",
+  "Kongo":"Congo","Dem. Rep. Kongo":"DR Congo","Gabun":"Gabon",
+  "Kamerun":"Cameroon","Benin":"Benin","Togo":"Togo",
+  "Zentralafrik. Rep.":"Central African Republic","Äquatorialguinea":"Equatorial Guinea",
+  "Burundi":"Burundi","Lesotho":"Lesotho","Eswatini":"Eswatini","Malawi":"Malawi",
+  "Mauretanien":"Mauritania","Komoren":"Comoros","Kiribati":"Kiribati",
+  "Vanuatu":"Vanuatu","Samoa":"Samoa","Tonga":"Tonga","Fidschi":"Fiji",
+  "Papua-Neuguinea":"Papua New Guinea","Nauru":"Nauru","Tuvalu":"Tuvalu",
+  "Marshallinseln":"Marshall Islands","Mikronesien":"Federated States of Micronesia",
+  "Palau":"Palau","Bhutan":"Bhutan","Bangladesch":"Bangladesh",
+  "Nordkorea":"North Korea","Osttimor":"Timor-Leste","Iran":"Iran","Irak":"Iraq",
+  "Syrien":"Syria","Jemen":"Yemen","Afghanistan":"Afghanistan","Libanon":"Lebanon",
+  "Jordanien":"Jordan","Oman":"Oman","Laos":"Laos","Kuba":"Cuba",
+  "São Tomé":"São Tomé and Príncipe","Réunion":"Réunion",
+};
+
+function getVisa(germanName) {
+  const en = DE_TO_EN[germanName] || germanName;
+  return VISA_FREE_RAW[en] ?? null;
+}
+
+// WEATHER DATA: monthly [sun_h, rain_mm, avg_temp_c] per country
+// Source: World Meteorological Organization / Climate-data.org averages
+// Format: [Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec]
+// Each entry: {sun:[...], rain:[...], tmin:[...], tmax:[...]}
+const WEATHER = {
+  // Germany
+  "Deutschland":{sun:[46,72,120,165,210,216,220,210,162,108,51,37],rain:[52,41,45,37,52,65,68,62,45,49,52,55],tmin:[-2,-1,2,5,9,13,15,14,11,6,2,-1],tmax:[3,5,10,15,19,22,24,24,20,13,7,3]},
+  // France
+  "Frankreich":{sun:[77,97,155,192,228,254,300,278,204,140,85,66],rain:[54,44,42,40,55,46,40,43,48,56,58,61],tmin:[2,3,6,9,13,16,18,18,15,10,6,3],tmax:[8,10,14,17,21,25,27,27,24,18,12,8]},
+  // Spain
+  "Spanien":{sun:[161,175,219,249,285,315,362,341,255,195,152,145],rain:[48,41,36,37,34,19,5,9,32,57,62,58],tmin:[4,5,8,10,14,18,21,21,18,13,8,5],tmax:[12,14,17,19,23,28,33,32,28,21,16,12]},
+  // Italy
+  "Italien":{sun:[112,140,186,222,258,288,332,304,228,164,105,93],rain:[64,53,52,50,47,35,23,27,50,77,87,74],tmin:[1,2,6,9,13,17,20,20,16,11,6,2],tmax:[9,11,15,19,23,27,30,30,26,20,14,10]},
+  // Switzerland
+  "Schweiz":{sun:[72,108,148,178,210,223,248,228,180,120,72,58],rain:[63,58,63,64,82,98,105,98,81,74,68,63],tmin:[-3,-2,1,5,9,13,15,15,11,6,1,-2],tmax:[3,5,10,14,18,22,24,24,20,14,8,4]},
+  // Austria
+  "Österreich":{sun:[62,93,148,178,213,220,248,227,182,121,65,51],rain:[50,48,52,60,75,90,100,90,68,55,55,52],tmin:[-4,-3,1,5,9,13,15,14,10,5,-1,-3],tmax:[2,4,10,15,19,23,25,25,21,14,7,3]},
+  // Portugal
+  "Portugal":{sun:[164,168,224,258,291,312,347,337,270,207,163,146],rain:[77,68,52,48,35,14,5,6,32,63,81,86],tmin:[8,8,11,12,15,17,19,20,18,14,11,8],tmax:[15,16,18,20,22,26,29,29,27,22,18,15]},
+  // Greece
+  "Griechenland":{sun:[124,148,198,234,285,327,372,355,276,192,129,108],rain:[56,46,44,28,20,8,5,7,18,47,60,65],tmin:[5,5,8,12,16,20,23,23,19,14,10,7],tmax:[12,13,16,20,25,30,33,33,29,23,17,13]},
+  // Norway
+  "Norwegen":{sun:[30,72,130,178,220,228,228,186,130,80,38,22],rain:[53,40,47,41,53,65,68,72,82,90,70,58],tmin:[-7,-7,-4,0,5,10,12,11,7,2,-3,-6],tmax:[-2,-1,4,9,15,19,22,21,16,9,3,-1]},
+  // Sweden
+  "Schweden":{sun:[37,74,136,182,228,234,228,186,131,80,39,24],rain:[43,29,26,30,37,54,72,66,55,51,52,47],tmin:[-7,-7,-4,0,6,11,14,13,9,4,-2,-5],tmax:[-2,-1,4,9,16,21,23,22,17,10,4,0]},
+  // Denmark
+  "Dänemark":{sun:[46,72,120,165,210,215,219,197,144,89,48,33],rain:[52,35,38,38,40,52,58,64,55,55,60,55],tmin:[-2,-2,0,3,7,12,14,14,11,7,3,0],tmax:[3,3,6,11,16,20,22,22,18,13,8,4]},
+  // Finland
+  "Finnland":{sun:[22,55,124,186,252,268,262,202,126,67,28,14],rain:[43,32,36,33,37,53,68,71,58,57,52,50],tmin:[-13,-13,-8,-2,4,9,13,12,8,3,-4,-10],tmax:[-5,-4,1,8,15,20,23,21,16,8,1,-4]},
+  // Netherlands
+  "Niederlande":{sun:[58,82,120,162,207,198,210,186,140,89,55,44],rain:[68,47,61,41,55,67,71,75,73,79,82,76],tmin:[0,0,2,4,8,11,13,13,11,7,4,1],tmax:[5,6,9,13,17,20,22,22,19,14,9,6]},
+  // Belgium
+  "Belgien":{sun:[56,78,120,155,196,197,207,183,143,93,57,44],rain:[75,60,72,52,65,76,82,81,70,79,84,82],tmin:[0,0,3,5,9,12,14,14,11,7,3,1],tmax:[5,6,10,14,18,21,23,23,19,14,9,6]},
+  // Poland
+  "Polen":{sun:[42,63,118,158,213,218,220,200,151,93,44,32],rain:[31,28,31,34,51,62,75,65,44,38,36,33],tmin:[-5,-4,-1,3,8,12,14,14,10,5,1,-3],tmax:[0,2,7,13,18,22,24,24,19,13,6,2]},
+  // Hungary
+  "Ungarn":{sun:[58,88,148,192,237,258,302,280,204,135,66,47],rain:[33,33,36,41,57,61,45,50,42,37,50,43],tmin:[-4,-2,2,6,11,14,16,16,12,6,2,-2],tmax:[2,5,11,17,22,26,28,28,24,17,10,4]},
+  // Czech Republic
+  "Tschechien":{sun:[52,79,133,171,218,226,238,220,164,104,52,40],rain:[29,27,29,37,62,78,79,77,44,34,34,32],tmin:[-4,-3,0,4,8,12,14,14,10,5,1,-3],tmax:[2,4,9,15,20,23,25,25,21,14,7,3]},
+  // United Kingdom
+  "Vereinigtes Königreich":{sun:[59,78,119,160,196,198,201,178,138,103,68,52],rain:[84,61,66,54,63,65,57,73,67,84,90,90],tmin:[1,1,3,5,8,11,13,13,11,7,4,2],tmax:[8,8,11,13,17,20,22,22,19,15,11,8]},
+  // Ireland
+  "Irland":{sun:[58,86,121,158,186,182,174,165,134,98,65,51],rain:[91,63,72,59,62,65,57,79,77,90,92,92],tmin:[1,1,2,4,7,10,12,12,10,7,4,2],tmax:[8,8,10,13,15,18,20,20,17,14,10,8]},
+  // USA
+  "USA":{sun:[155,168,198,204,228,258,288,270,228,180,150,145],rain:[73,64,83,81,91,87,81,80,79,76,73,74],tmin:[0,1,5,10,15,20,23,22,18,11,5,1],tmax:[8,10,15,20,25,29,32,31,27,21,14,9]},
+  // Canada
+  "Kanada":{sun:[103,130,167,183,220,228,264,248,186,133,83,86],rain:[34,26,30,35,55,70,70,64,64,53,44,37],tmin:[-14,-12,-7,-1,5,10,13,12,8,2,-5,-12],tmax:[-7,-5,1,10,17,22,26,25,19,12,3,-5]},
+  // Australia
+  "Australien":{sun:[248,224,217,186,155,130,140,163,192,217,228,248],rain:[79,73,92,65,58,56,47,55,59,71,78,84],tmin:[15,15,13,10,7,4,3,4,6,9,12,14],tmax:[26,26,24,20,16,13,13,14,16,20,22,25]},
+  // New Zealand
+  "Neuseeland":{sun:[210,192,178,145,115,89,89,108,138,165,183,198],rain:[70,60,79,96,117,128,130,118,96,89,82,77],tmin:[12,12,10,8,5,3,2,3,5,7,9,11],tmax:[21,21,20,16,13,10,9,11,13,16,18,20]},
+  // Japan
+  "Japan":{sun:[186,165,186,186,177,120,163,217,144,155,141,170],rain:[48,73,107,125,138,180,146,152,234,165,91,44],tmin:[1,1,4,9,14,18,22,23,19,12,7,2],tmax:[9,10,13,19,23,26,29,31,27,21,16,11]},
+  // South Korea
+  "Südkorea":{sun:[180,165,183,186,210,162,147,168,162,192,174,177],rain:[28,37,45,79,88,130,327,278,131,38,52,14],tmin:[-8,-5,0,7,13,18,22,23,17,9,1,-5],tmax:[2,4,10,17,22,27,29,30,25,18,11,4]},
+  // China
+  "China":{sun:[140,148,165,174,204,186,210,210,183,177,148,140],rain:[8,10,22,47,62,78,172,175,55,28,10,5],tmin:[-8,-5,1,8,14,19,22,21,15,8,0,-6],tmax:[3,6,13,20,26,30,31,30,26,19,11,5]},
+  // India
+  "Indien":{sun:[241,244,270,270,270,186,155,155,207,248,243,244],rain:[24,10,13,5,18,155,305,262,155,60,21,7],tmin:[14,16,20,25,27,27,26,25,24,22,17,14],tmax:[29,31,36,39,40,37,33,32,33,33,31,29]},
+  // Brazil
+  "Brasilien":{sun:[204,180,198,204,204,186,198,228,192,186,174,192],rain:[195,165,155,68,49,45,36,25,67,136,168,188],tmin:[22,22,22,20,18,16,16,17,18,19,20,21],tmax:[29,30,29,27,25,24,24,26,26,27,27,29]},
+  // Russia
+  "Russland":{sun:[43,72,130,167,220,240,244,218,162,90,44,32],rain:[39,32,33,33,48,65,75,71,52,43,44,43],tmin:[-14,-13,-7,1,7,12,14,13,8,2,-5,-11],tmax:[-7,-5,2,10,18,22,24,22,17,9,0,-5]},
+  // Turkey
+  "Türkei":{sun:[130,150,186,219,267,315,357,340,270,196,140,117],rain:[88,73,72,54,44,18,12,9,19,44,90,101],tmin:[2,2,4,8,13,18,21,21,17,12,8,4],tmax:[9,10,13,18,23,28,32,32,28,22,16,11]},
+  // Egypt
+  "Ägypten":{sun:[248,248,264,285,315,330,341,334,300,279,248,240],rain:[6,3,2,1,0,0,0,0,0,1,3,7],tmin:[9,10,12,16,20,23,25,25,22,19,14,10],tmax:[19,21,23,28,32,35,36,36,33,30,25,20]},
+  // South Africa
+  "Südafrika":{sun:[306,272,254,216,180,156,171,202,228,264,285,306],rain:[55,60,70,45,23,10,8,10,20,56,73,65],tmin:[15,15,13,10,7,4,4,5,8,11,13,14],tmax:[28,28,26,23,20,17,17,18,21,23,25,27]},
+  // Morocco
+  "Marokko":{sun:[213,216,248,261,285,309,341,320,265,225,196,192],rain:[51,50,48,35,20,4,1,3,10,35,57,68],tmin:[5,7,9,11,14,18,21,21,18,13,9,6],tmax:[17,18,21,22,25,29,33,33,29,25,20,17]},
+  // Kenya
+  "Kenia":{sun:[210,198,186,168,168,180,186,210,204,198,192,204],rain:[38,46,90,155,140,40,17,28,30,72,103,65],tmin:[14,14,14,15,14,12,11,11,12,13,13,14],tmax:[27,28,27,25,24,22,21,21,23,24,24,26]},
+  // Nigeria
+  "Nigeria":{sun:[204,198,204,192,180,156,144,156,168,204,228,228],rain:[19,29,67,123,157,188,198,123,218,162,24,7],tmin:[19,22,25,23,22,21,21,21,21,21,21,19],tmax:[33,35,35,34,32,30,29,28,29,31,33,33]},
+  // Saudi Arabia
+  "Saudi-Arabien":{sun:[248,255,279,297,316,330,335,326,303,279,258,243],rain:[10,3,7,2,1,0,0,0,0,0,2,7],tmin:[12,13,17,21,26,28,29,29,26,22,16,12],tmax:[24,26,30,36,41,44,44,43,40,36,30,25]},
+  // UAE
+  "Emirate":{sun:[248,261,285,300,318,323,310,303,300,293,270,248],rain:[18,25,14,7,0,0,0,0,0,0,3,18],tmin:[14,15,18,22,27,28,30,30,27,23,19,15],tmax:[23,24,28,33,38,40,41,41,38,35,30,25]},
+  // Singapore
+  "Singapur":{sun:[155,168,186,180,186,180,177,183,162,158,148,148],rain:[224,112,150,154,170,131,148,143,163,175,255,318],tmin:[23,24,24,24,25,25,25,24,24,24,23,23],tmax:[30,31,31,31,31,31,31,31,31,31,30,30]},
+  // Hong Kong
+  "Hongkong":{sun:[140,105,96,120,159,168,204,198,186,186,168,155],rain:[33,55,84,175,329,407,380,366,257,100,36,30],tmin:[13,13,16,20,24,26,26,26,25,22,18,14],tmax:[18,18,21,25,28,30,31,31,29,27,23,20]},
+  // Thailand
+  "Thailand":{sun:[248,261,279,258,210,162,162,162,162,186,228,248],rain:[10,23,37,60,160,175,175,185,300,240,50,13],tmin:[20,22,25,27,26,25,25,25,24,24,22,20],tmax:[33,35,36,35,34,33,32,32,32,32,32,31]},
+  // Indonesia
+  "Indonesien":{sun:[155,168,186,204,210,204,198,204,210,192,168,148],rain:[320,260,258,213,137,88,52,47,85,130,178,257],tmin:[23,23,23,24,24,23,23,22,23,23,23,23],tmax:[30,30,31,31,31,31,31,31,31,31,30,30]},
+  // Malaysia
+  "Malaysia":{sun:[168,180,192,186,186,174,168,168,162,155,140,143],rain:[225,178,210,245,195,122,138,155,165,243,300,275],tmin:[23,23,23,24,24,23,23,23,23,23,23,23],tmax:[30,31,31,31,31,31,31,31,31,30,30,30]},
+  // Vietnam
+  "Vietnam":{sun:[130,140,168,186,210,180,162,168,162,168,145,130],rain:[18,22,30,50,99,137,148,145,240,175,54,23],tmin:[17,18,20,23,25,26,25,25,24,22,19,17],tmax:[24,25,28,31,33,33,32,31,29,27,25,23]},
+  // Philippines
+  "Philippinen":{sun:[186,213,252,252,240,162,130,138,138,162,162,168],rain:[52,30,38,50,140,207,218,205,225,195,123,78],tmin:[21,21,23,24,26,26,25,25,25,24,23,22],tmax:[30,30,32,33,33,31,30,30,30,30,30,30]},
+  // Mexico
+  "Mexiko":{sun:[217,228,258,270,279,255,240,234,219,210,198,210],rain:[10,6,9,22,54,100,85,92,115,60,15,8],tmin:[7,9,13,16,17,18,17,17,16,14,10,7],tmax:[22,24,27,29,29,28,26,26,26,25,24,22]},
+  // Argentina
+  "Argentinien":{sun:[234,204,186,162,138,108,108,138,162,192,210,234],rain:[79,83,105,74,62,51,49,53,60,77,83,82],tmin:[17,17,15,11,7,4,3,4,7,10,13,16],tmax:[29,29,27,22,17,13,12,14,17,21,24,28]},
+  // Chile
+  "Chile":{sun:[324,276,236,174,127,96,102,132,165,213,264,310],rain:[1,2,3,8,40,72,78,55,26,10,4,2],tmin:[11,10,8,5,2,0,-1,0,1,4,7,10],tmax:[30,29,27,23,18,14,14,15,17,21,25,28]},
+  // Iran
+  "Iran":{sun:[210,213,234,252,285,315,341,334,297,252,210,192],rain:[45,42,42,26,13,3,1,1,2,8,29,48],tmin:[0,2,6,11,16,21,24,22,17,11,5,1],tmax:[8,11,17,23,29,35,38,37,32,24,16,10]},
+  // Pakistan
+  "Pakistan":{sun:[228,234,258,279,306,297,234,234,282,300,270,228],rain:[30,26,29,17,11,5,30,28,8,4,5,17],tmin:[5,8,14,20,25,27,27,26,22,15,8,5],tmax:[19,22,28,34,38,40,38,37,35,31,25,20]},
+  "Nordkorea":{sun:[155,170,204,210,228,198,162,174,192,192,162,145],rain:[12,18,22,60,78,87,244,272,87,34,18,11],tmin:[-13,-9,-2,5,11,16,20,20,13,5,-3,-10],tmax:[-4,-1,7,15,21,25,27,27,22,15,6,-1]},
+  // Generic fallbacks for less-covered countries (we assign climate zone estimates)
+  "Marokko":{sun:[213,216,248,261,285,309,341,320,265,225,196,192],rain:[51,50,48,35,20,4,1,3,10,35,57,68],tmin:[5,7,9,11,14,18,21,21,18,13,9,6],tmax:[17,18,21,22,25,29,33,33,29,25,20,17]},
+};
+
+// Climate zone fallback templates
+const CLIMATE_ZONES = {
+  tropical:  {sun:[155,170,186,180,175,165,165,170,165,160,148,150],rain:[280,230,220,200,160,100,80,90,140,210,270,300],tmin:[22,22,22,23,24,23,23,22,23,23,22,22],tmax:[30,30,31,31,30,30,30,30,30,30,30,30]},
+  subtropical:{sun:[192,204,228,240,258,270,290,278,240,210,186,179],rain:[80,65,55,45,30,10,5,8,25,55,75,85],tmin:[8,9,12,16,20,24,26,26,22,17,12,9],tmax:[20,21,24,28,32,36,38,37,33,28,23,20]},
+  mediterranean:{sun:[155,175,220,255,285,315,355,330,265,200,155,138],rain:[70,60,50,35,20,5,2,4,25,55,72,80],tmin:[5,6,8,11,15,19,21,21,18,13,9,6],tmax:[13,14,17,20,24,29,33,32,28,22,17,14]},
+  arid:      {sun:[280,285,300,310,318,322,330,325,305,295,280,272],rain:[5,3,3,2,1,0,0,0,0,1,2,5],tmin:[10,12,16,21,26,28,30,29,25,20,14,11],tmax:[25,27,31,36,40,44,45,44,40,35,29,25]},
+  continental:{sun:[55,88,140,178,222,235,258,230,170,108,58,42],rain:[35,30,33,38,52,65,72,68,45,40,40,38],tmin:[-10,-8,-3,3,9,13,15,14,9,3,-4,-8],tmax:[-2,0,7,14,21,25,27,26,21,13,4,0]},
+  subarctic:  {sun:[18,58,130,186,252,278,268,210,126,65,22,10],rain:[35,28,30,30,38,52,65,60,45,45,42,38],tmin:[-20,-18,-12,-4,3,9,12,10,5,-2,-12,-18],tmax:[-10,-7,-1,7,15,20,23,21,15,6,-3,-9]},
+  temperate:  {sun:[65,90,135,170,208,205,215,190,145,100,65,52],rain:[65,52,58,50,58,68,68,72,65,70,75,70],tmin:[-2,-1,2,5,9,12,14,13,10,6,2,0],tmax:[5,6,10,14,18,21,23,22,19,14,9,6]},
+  cold_desert:{sun:[210,220,245,265,285,310,330,315,285,248,210,192],rain:[10,8,10,5,5,2,1,2,3,5,8,12],tmin:[-12,-8,-2,5,10,14,16,14,8,1,-7,-12],tmax:[3,7,15,22,27,32,35,33,27,19,10,4]},
+};
+
+// Assign climate zone to countries without specific data
+const COUNTRY_CLIMATE = {
+  "Afghanistan":"arid","Albanien":"mediterranean","Algerien":"arid",
+  "Andorra":"continental","Angola":"tropical","Armenien":"continental",
+  "Australien":"subtropical","Aserbaidschan":"continental","Bangladesch":"tropical","Belgien":"temperate",
+  "Benin":"tropical","Bhutan":"continental","Bolivien":"tropical",
+  "Bosnien-Herzegowina":"continental","Botswana":"subtropical","Brasilien":"tropical",
+  "Brunei":"tropical","Bulgarien":"continental","Burkina Faso":"tropical",
+  "Burundi":"tropical","Belize":"tropical","Dänemark":"temperate",
+  "Dem. Rep. Kongo":"tropical","Dschibuti":"arid","Ecuador":"tropical",
+  "Elfenbeinküste":"tropical","El Salvador":"tropical","Emirate":"arid",
+  "Eritrea":"arid","Estland":"temperate","Äthiopien":"tropical",
+  "Fidschi":"tropical","Finnland":"subarctic","Gabun":"tropical",
+  "Gambia":"tropical","Georgien":"continental","Ghana":"tropical",
+  "Grenada":"tropical","Guatemala":"tropical","Guinea":"tropical",
+  "Guyana":"tropical","Haiti":"tropical","Honduras":"tropical",
+  "Indien":"subtropical","Indonesien":"tropical","Irak":"arid",
+  "Island":"subarctic","Israel":"mediterranean","Jamaika":"tropical",
+  "Japan":"temperate","Jordanien":"arid","Kambodscha":"tropical",
+  "Kamerun":"tropical","Kanada":"subarctic","Kap Verde":"subtropical",
+  "Kasachstan":"continental","Katar":"arid","Kenia":"tropical",
+  "Kiribati":"tropical","Kirgisistan":"continental","Kolumbien":"tropical",
+  "Komoren":"tropical","Kongo":"tropical","Korea, Nord":"continental",
+  "Kosovo":"continental","Kroatien":"mediterranean","Kuba":"tropical",
+  "Kuwait":"arid","Laos":"tropical","Lesotho":"continental","Lettland":"temperate",
+  "Libanon":"mediterranean","Liberia":"tropical","Libyen":"arid",
+  "Liechtenstein":"continental","Litauen":"temperate","Macau":"subtropical",
+  "Madagaskar":"tropical","Malawi":"tropical","Malediven":"tropical",
+  "Mali":"arid","Marshallinseln":"tropical","Mauretanien":"arid",
+  "Mauritius":"subtropical","Mikronesien":"tropical","Moldau":"continental",
+  "Monaco":"mediterranean","Mongolei":"cold_desert","Montenegro":"mediterranean",
+  "Mosambik":"tropical","Myanmar":"tropical","Namibia":"subtropical",
+  "Nauru":"tropical","Nepal":"continental","Nicaragua":"tropical",
+  "Niger":"arid","Nigeria":"tropical","Nordkorea":"continental",
+  "Nordmazedonien":"continental","Norwegen":"subarctic","Österreich":"continental",
+  "Osttimor":"tropical","Pakistan":"arid","Palau":"tropical","Panama":"tropical",
+  "Papua-Neuguinea":"tropical","Paraguay":"subtropical","Peru":"subtropical",
+  "Philippinen":"tropical","Polen":"continental","Portugal":"mediterranean",
+  "Puerto Rico":"tropical","Réunion":"tropical","Rumänien":"continental",
+  "Russland":"subarctic","Ruanda":"tropical","Samoa":"tropical",
+  "São Tomé":"tropical","Saudi-Arabien":"arid","Senegal":"tropical",
+  "Serbien":"continental","Seychellen":"tropical","Sierra Leone":"tropical",
+  "Simbabwe":"subtropical","Singapur":"tropical","Slowakei":"continental",
+  "Slowenien":"continental","Somalia":"arid","Spanien":"mediterranean",
+  "Sri Lanka":"tropical","St. Kitts & Nevis":"tropical","St. Lucia":"tropical",
+  "St. Vincent":"tropical","Sudan":"arid","Suriname":"tropical",
+  "Syrien":"arid","Tadschikistan":"continental","Tansania":"tropical",
+  "Thailand":"tropical","Togo":"tropical","Tonga":"tropical",
+  "Trinidad & Tobago":"tropical","Tschad":"arid","Tunesien":"mediterranean",
+  "Turkmenistan":"cold_desert","Tuvalu":"tropical","Uganda":"tropical",
+  "Ukraine":"continental","Ungarn":"continental","Uruguay":"temperate",
+  "Usbekistan":"cold_desert","Vanuatu":"tropical","Venezuela":"tropical",
+  "Vietnam":"tropical","Weißrussland":"continental","Jemen":"arid",
+  "Sambia":"tropical","Zentralafrik. Rep.":"tropical","Zypern":"mediterranean",
+  "Vatikan":"mediterranean","San Marino":"continental","Andorra":"continental",
+  "Eswatini":"subtropical","Gambia":"tropical","Guinea-Bissau":"tropical",
+  "Äquat.guinea":"tropical","Liberia":"tropical","Cookinseln":"tropical",
+  "Niue":"tropical","Belize":"tropical","Dschibuti":"arid",
+};
+
+function getWeather(name) {
+  if (WEATHER[name]) return WEATHER[name];
+  const zone = COUNTRY_CLIMATE[name] || "temperate";
+  return CLIMATE_ZONES[zone];
+}
+
+// TAX DATA
+const TAX = {
+ "4": {n:"Afghanistan",income:20,capital:0,corporate:20,effective:8},
+ "8": {n:"Albanien",income:23,capital:15,corporate:15,effective:16},
+ "12":{n:"Algerien",income:35,capital:15,corporate:26,effective:19},
+ "20":{n:"Andorra",income:10,capital:10,corporate:10,effective:5},
+ "24":{n:"Angola",income:17,capital:10,corporate:25,effective:10},
+ "31":{n:"Aserbaidschan",income:25,capital:10,corporate:20,effective:14},
+ "32":{n:"Argentinien",income:35,capital:15,corporate:35,effective:24},
+ "36":{n:"Australien",income:62,capital:24,corporate:30,effective:26.9},
+ "40":{n:"Österreich",income:67,capital:27.5,corporate:23,effective:47.79},
+ "50":{n:"Bangladesch",income:25,capital:10,corporate:27.5,effective:12},
+ "51":{n:"Armenien",income:22,capital:10,corporate:18,effective:13},
+ "56":{n:"Belgien",income:79,capital:30,corporate:25,effective:53.05},
+ "64":{n:"Bhutan",income:25,capital:0,corporate:30,effective:10},
+ "68":{n:"Bolivien",income:13,capital:13,corporate:25,effective:10},
+ "70":{n:"Bosnien-Herzegowina",income:10,capital:10,corporate:10,effective:10},
+ "72":{n:"Botswana",income:25,capital:25,corporate:22,effective:15},
+ "76":{n:"Brasilien",income:57.5,capital:22.5,corporate:34,effective:28},
+ "84":{n:"Belize",income:25,capital:0,corporate:1.75,effective:12},
+ "96":{n:"Brunei",income:0,capital:0,corporate:18.5,effective:0},
+ "100":{n:"Bulgarien",income:10,capital:10,corporate:10,effective:10},
+ "104":{n:"Myanmar",income:25,capital:10,corporate:22,effective:10},
+ "108":{n:"Burundi",income:35,capital:15,corporate:30,effective:16},
+ "112":{n:"Weißrussland",income:13,capital:13,corporate:18,effective:12},
+ "116":{n:"Kambodscha",income:20,capital:14,corporate:20,effective:10},
+ "120":{n:"Kamerun",income:38.5,capital:16.5,corporate:33,effective:18},
+ "124":{n:"Kanada",income:66.4,capital:33.2,corporate:26.5,effective:31.86},
+ "132":{n:"Kap Verde",income:35,capital:10,corporate:25,effective:16},
+ "140":{n:"Zentralafrik. Rep.",income:50,capital:20,corporate:30,effective:14},
+ "144":{n:"Sri Lanka",income:24,capital:14,corporate:30,effective:14},
+ "152":{n:"Chile",income:35,capital:10,corporate:27,effective:7},
+ "156":{n:"China",income:45,capital:20,corporate:25,effective:22},
+ "170":{n:"Kolumbien",income:39,capital:10,corporate:35,effective:18},
+ "174":{n:"Komoren",income:30,capital:10,corporate:35,effective:14},
+ "178":{n:"Kongo",income:50,capital:20,corporate:30,effective:16},
+ "180":{n:"Dem. Rep. Kongo",income:40,capital:10,corporate:30,effective:13},
+ "188":{n:"Costa Rica",income:15,capital:15,corporate:30,effective:29.25},
+ "191":{n:"Kroatien",income:39.6,capital:12,corporate:18,effective:22},
+ "192":{n:"Kuba",income:50,capital:0,corporate:30,effective:20},
+ "196":{n:"Zypern",income:35,capital:0,corporate:12.5,effective:14},
+ "203":{n:"Tschechien",income:23,capital:23,corporate:21,effective:37},
+ "204":{n:"Benin",income:45,capital:13,corporate:30,effective:15},
+ "208":{n:"Dänemark",income:73,capital:42,corporate:22,effective:35.51},
+ "214":{n:"Dominik. Republik",income:25,capital:10,corporate:27,effective:14},
+ "218":{n:"Ecuador",income:35,capital:10,corporate:25,effective:17},
+ "222":{n:"El Salvador",income:30,capital:10,corporate:30,effective:16},
+ "231":{n:"Äthiopien",income:35,capital:10,corporate:30,effective:14},
+ "232":{n:"Eritrea",income:30,capital:10,corporate:30,effective:12},
+ "233":{n:"Estland",income:22,capital:22,corporate:20,effective:39},
+ "242":{n:"Fidschi",income:20,capital:9,corporate:20,effective:10},
+ "246":{n:"Finnland",income:73.9,capital:30,corporate:20,effective:43.13},
+ "250":{n:"Frankreich",income:78.3,capital:30,corporate:25,effective:47},
+ "262":{n:"Dschibuti",income:30,capital:10,corporate:25,effective:12},
+ "266":{n:"Gabun",income:35,capital:20,corporate:35,effective:16},
+ "268":{n:"Georgien",income:20,capital:5,corporate:15,effective:12},
+ "270":{n:"Gambia",income:30,capital:15,corporate:27,effective:13},
+ "276":{n:"Deutschland",income:67.3,capital:26.4,corporate:29.9,effective:48.3},
+ "288":{n:"Ghana",income:30,capital:8,corporate:25,effective:15},
+ "296":{n:"Kiribati",income:25,capital:0,corporate:25,effective:10},
+ "300":{n:"Griechenland",income:54,capital:15,corporate:22,effective:37.08},
+ "308":{n:"Grenada",income:30,capital:0,corporate:28,effective:14},
+ "320":{n:"Guatemala",income:31,capital:10,corporate:25,effective:15},
+ "324":{n:"Guinea",income:40,capital:10,corporate:35,effective:14},
+ "328":{n:"Guyana",income:40,capital:20,corporate:25,effective:18},
+ "332":{n:"Haiti",income:30,capital:15,corporate:30,effective:12},
+ "340":{n:"Honduras",income:25,capital:10,corporate:25,effective:15},
+ "344":{n:"Hongkong",income:17,capital:0,corporate:16.5,effective:8},
+ "348":{n:"Ungarn",income:33.5,capital:15,corporate:9,effective:41.15},
+ "352":{n:"Island",income:65.8,capital:22,corporate:20,effective:32.48},
+ "356":{n:"Indien",income:42.7,capital:20,corporate:25.2,effective:20},
+ "360":{n:"Indonesien",income:35,capital:20,corporate:22,effective:16},
+ "364":{n:"Iran",income:35,capital:22.5,corporate:25,effective:16},
+ "368":{n:"Irak",income:15,capital:15,corporate:15,effective:9},
+ "372":{n:"Irland",income:52,capital:33,corporate:12.5,effective:34.72},
+ "376":{n:"Israel",income:50,capital:25,corporate:23,effective:23.57},
+ "380":{n:"Italien",income:69.7,capital:26,corporate:27.9,effective:45.89},
+ "388":{n:"Jamaika",income:25,capital:15,corporate:25,effective:14},
+ "392":{n:"Japan",income:71.4,capital:20.3,corporate:29.7,effective:32.65},
+ "398":{n:"Kasachstan",income:10,capital:15,corporate:20,effective:10},
+ "400":{n:"Jordanien",income:30,capital:0,corporate:20,effective:13},
+ "404":{n:"Kenia",income:35,capital:15,corporate:30,effective:16},
+ "408":{n:"Nordkorea",income:0,capital:0,corporate:25,effective:0},
+ "410":{n:"Südkorea",income:61.5,capital:27.5,corporate:27.5,effective:24.19},
+ "414":{n:"Kuwait",income:0,capital:0,corporate:15,effective:0},
+ "417":{n:"Kirgisistan",income:10,capital:10,corporate:10,effective:8},
+ "418":{n:"Laos",income:24,capital:10,corporate:20,effective:10},
+ "422":{n:"Libanon",income:25,capital:10,corporate:17,effective:12},
+ "426":{n:"Lesotho",income:35,capital:25,corporate:25,effective:16},
+ "428":{n:"Lettland",income:31,capital:20,corporate:20,effective:40.55},
+ "430":{n:"Liberia",income:25,capital:15,corporate:25,effective:12},
+ "434":{n:"Libyen",income:15,capital:5,corporate:20,effective:8},
+ "438":{n:"Liechtenstein",income:22.4,capital:0,corporate:12.5,effective:10},
+ "440":{n:"Litauen",income:32,capital:15,corporate:15,effective:38.22},
+ "442":{n:"Luxemburg",income:60.8,capital:20,corporate:24.9,effective:40.38},
+ "446":{n:"Macau",income:12,capital:0,corporate:12,effective:6},
+ "450":{n:"Madagaskar",income:20,capital:10,corporate:20,effective:10},
+ "454":{n:"Malawi",income:35,capital:10,corporate:30,effective:15},
+ "458":{n:"Malaysia",income:30,capital:0,corporate:24,effective:14},
+ "462":{n:"Malediven",income:15,capital:0,corporate:15,effective:7},
+ "466":{n:"Mali",income:40,capital:15,corporate:30,effective:15},
+ "470":{n:"Malta",income:35,capital:0,corporate:35,effective:18},
+ "478":{n:"Mauretanien",income:33,capital:10,corporate:25,effective:14},
+ "480":{n:"Mauritius",income:15,capital:0,corporate:15,effective:8},
+ "484":{n:"Mexiko",income:35,capital:10,corporate:30,effective:20.4},
+ "492":{n:"Monaco",income:0,capital:0,corporate:25,effective:0},
+ "496":{n:"Mongolei",income:10,capital:10,corporate:25,effective:10},
+ "498":{n:"Moldau",income:12,capital:12,corporate:12,effective:10},
+ "499":{n:"Montenegro",income:15,capital:15,corporate:15,effective:12},
+ "504":{n:"Marokko",income:38,capital:15,corporate:31,effective:18},
+ "508":{n:"Mosambik",income:32,capital:20,corporate:32,effective:14},
+ "516":{n:"Namibia",income:37,capital:10,corporate:32,effective:17},
+ "524":{n:"Nepal",income:36,capital:15,corporate:25,effective:16},
+ "528":{n:"Niederlande",income:69.4,capital:31,corporate:25.8,effective:35.48},
+ "548":{n:"Vanuatu",income:0,capital:0,corporate:0,effective:0},
+ "554":{n:"Neuseeland",income:39,capital:0,corporate:28,effective:20.14},
+ "558":{n:"Nicaragua",income:30,capital:15,corporate:30,effective:15},
+ "562":{n:"Niger",income:35,capital:10,corporate:30,effective:13},
+ "566":{n:"Nigeria",income:24,capital:10,corporate:30,effective:13},
+ "578":{n:"Norwegen",income:73.9,capital:37.8,corporate:22,effective:35.71},
+ "586":{n:"Pakistan",income:35,capital:15,corporate:29,effective:16},
+ "591":{n:"Panama",income:25,capital:10,corporate:25,effective:14},
+ "598":{n:"Papua-Neuguinea",income:42,capital:10,corporate:30,effective:18},
+ "600":{n:"Paraguay",income:10,capital:8,corporate:10,effective:8},
+ "604":{n:"Peru",income:30,capital:5,corporate:29.5,effective:16},
+ "608":{n:"Philippinen",income:35,capital:15,corporate:25,effective:16},
+ "616":{n:"Polen",income:41,capital:19,corporate:19,effective:33.62},
+ "620":{n:"Portugal",income:61.9,capital:28,corporate:31.5,effective:41.93},
+ "634":{n:"Katar",income:0,capital:0,corporate:10,effective:0},
+ "642":{n:"Rumänien",income:33,capital:10,corporate:16,effective:22},
+ "643":{n:"Russland",income:15,capital:13,corporate:20,effective:14},
+ "646":{n:"Ruanda",income:30,capital:15,corporate:30,effective:14},
+ "682":{n:"Saudi-Arabien",income:0,capital:0,corporate:20,effective:0},
+ "686":{n:"Senegal",income:40,capital:15,corporate:30,effective:16},
+ "688":{n:"Serbien",income:30,capital:15,corporate:15,effective:14},
+ "694":{n:"Sierra Leone",income:35,capital:15,corporate:25,effective:14},
+ "702":{n:"Singapur",income:24,capital:0,corporate:17,effective:10},
+ "703":{n:"Slowakei",income:39,capital:19,corporate:21,effective:41.6},
+ "704":{n:"Vietnam",income:35,capital:5,corporate:20,effective:15},
+ "705":{n:"Slowenien",income:61.1,capital:25,corporate:19,effective:42.8},
+ "706":{n:"Somalia",income:0,capital:0,corporate:0,effective:0},
+ "710":{n:"Südafrika",income:45,capital:18,corporate:27,effective:22},
+ "716":{n:"Simbabwe",income:41.2,capital:20,corporate:24,effective:18},
+ "724":{n:"Spanien",income:72.7,capital:28,corporate:25,effective:39.48},
+ "740":{n:"Suriname",income:38,capital:25,corporate:36,effective:18},
+ "748":{n:"Eswatini",income:33,capital:10,corporate:27.5,effective:15},
+ "752":{n:"Schweden",income:76.7,capital:30,corporate:20.6,effective:42.37},
+ "756":{n:"Schweiz",income:57.8,capital:21.2,corporate:19.7,effective:23.42},
+ "760":{n:"Syrien",income:22,capital:7,corporate:22,effective:10},
+ "762":{n:"Tadschikistan",income:13,capital:13,corporate:18,effective:9},
+ "764":{n:"Thailand",income:35,capital:15,corporate:20,effective:16},
+ "768":{n:"Togo",income:45,capital:13,corporate:27,effective:15},
+ "776":{n:"Tonga",income:20,capital:0,corporate:25,effective:10},
+ "780":{n:"Trinidad & Tobago",income:25,capital:0,corporate:30,effective:14},
+ "784":{n:"Emirate",income:0,capital:0,corporate:9,effective:0},
+ "788":{n:"Tunesien",income:35,capital:10,corporate:15,effective:16},
+ "792":{n:"Türkei",income:40.8,capital:10,corporate:25,effective:37.22},
+ "795":{n:"Turkmenistan",income:10,capital:10,corporate:18,effective:8},
+ "800":{n:"Uganda",income:40,capital:15,corporate:30,effective:16},
+ "804":{n:"Ukraine",income:18,capital:19.5,corporate:18,effective:14},
+ "807":{n:"Nordmazedonien",income:18,capital:15,corporate:10,effective:12},
+ "818":{n:"Ägypten",income:25,capital:10,corporate:22.5,effective:14},
+ "826":{n:"Vereinigtes Königreich",income:65,capital:28,corporate:25,effective:31.55},
+ "834":{n:"Tansania",income:30,capital:10,corporate:30,effective:14},
+ "840":{n:"USA",income:65.9,capital:23.8,corporate:27,effective:30.47},
+ "854":{n:"Burkina Faso",income:45,capital:12.5,corporate:27.5,effective:15},
+ "858":{n:"Uruguay",income:36,capital:12,corporate:25,effective:18},
+ "860":{n:"Usbekistan",income:12,capital:10,corporate:15,effective:10},
+ "862":{n:"Venezuela",income:34,capital:34,corporate:34,effective:18},
+ "882":{n:"Samoa",income:27,capital:0,corporate:27,effective:12},
+ "887":{n:"Jemen",income:15,capital:5,corporate:20,effective:8},
+ "894":{n:"Sambia",income:37.5,capital:15,corporate:30,effective:17},
+};
+
+// Country code mapping (ISO alpha-2 to TAX ID, for fixing TopoJSON lookups)
+const COUNTRY_CODE_MAP = {
+  'AU': '36', 'AT': '40', 'BE': '56', 'CA': '124', 'CN': '156', 'HR': '191', 'CZ': '203', 'DK': '208',
+  'EE': '233', 'FI': '246', 'FR': '250', 'DE': '276', 'GR': '300', 'HU': '348', 'IS': '352', 'IE': '372',
+  'IL': '376', 'IT': '380', 'JP': '392', 'KR': '410', 'LV': '428', 'LT': '440', 'LU': '442', 'MX': '484',
+  'NL': '528', 'NZ': '554', 'NO': '578', 'ES': '724', 'SE': '752', 'CH': '756', 'TR': '792', 'GB': '826',
+  'US': '840', 'CL': '152', 'BR': '76', 'AR': '32', 'IN': '356', 'ZA': '710', 'RU': '643', 'KZ': '398'
+};
+
+const SMALL_DOTS = [
+  {n:"Singapur",lat:1.35,lon:103.82,income:24,capital:0,corporate:17,effective:10},
+  {n:"Hongkong",lat:22.35,lon:114.15,income:17,capital:0,corporate:16.5,effective:8},
+  {n:"Monaco",lat:43.74,lon:7.40,income:0,capital:0,corporate:25,effective:0},
+  {n:"Andorra",lat:42.55,lon:1.52,income:10,capital:10,corporate:10,effective:5},
+  {n:"Montenegro",lat:42.78,lon:19.37,income:15,capital:15,corporate:15,effective:12},
+  {n:"Malta",lat:35.90,lon:14.51,income:35,capital:0,corporate:35,effective:18},
+  {n:"Liechtenstein",lat:47.14,lon:9.52,income:22.4,capital:0,corporate:12.5,effective:10},
+  {n:"Macau",lat:22.17,lon:113.55,income:12,capital:0,corporate:12,effective:6},
+  {n:"San Marino",lat:43.94,lon:12.46,income:50,capital:0,corporate:17,effective:20},
+  {n:"Vatikan",lat:41.90,lon:12.45,income:0,capital:0,corporate:0,effective:0},
+  {n:"Bahrain",lat:26.03,lon:50.55,income:0,capital:0,corporate:0,effective:0},
+  {n:"Malediven",lat:3.20,lon:73.22,income:15,capital:0,corporate:15,effective:7},
+  {n:"Mauritius",lat:-20.28,lon:57.55,income:15,capital:0,corporate:15,effective:8},
+  {n:"Bahamas",lat:25.03,lon:-77.40,income:0,capital:0,corporate:0,effective:0},
+  {n:"Barbados",lat:13.19,lon:-59.54,income:28.5,capital:0,corporate:5.5,effective:14},
+  {n:"Katar",lat:25.35,lon:51.18,income:0,capital:0,corporate:10,effective:0},
+  {n:"Kuwait",lat:29.37,lon:47.98,income:0,capital:0,corporate:15,effective:0},
+  {n:"Brunei",lat:4.94,lon:114.95,income:0,capital:0,corporate:18.5,effective:0},
+  {n:"Zypern",lat:35.13,lon:33.43,income:35,capital:0,corporate:12.5,effective:14},
+  {n:"Luxemburg",lat:49.81,lon:6.13,income:60.8,capital:20,corporate:24.9,effective:40.38},
+  {n:"Jamaika",lat:18.11,lon:-77.30,income:25,capital:15,corporate:25,effective:14},
+  {n:"Trinidad & Tobago",lat:10.69,lon:-61.22,income:25,capital:0,corporate:30,effective:14},
+  {n:"Fidschi",lat:-17.71,lon:178.06,income:20,capital:9,corporate:20,effective:10},
+  {n:"Vanuatu",lat:-15.38,lon:166.96,income:0,capital:0,corporate:0,effective:0},
+  {n:"Samoa",lat:-13.76,lon:-172.10,income:27,capital:0,corporate:27,effective:12},
+  {n:"Tonga",lat:-21.18,lon:-175.20,income:20,capital:0,corporate:25,effective:10},
+  {n:"Grenada",lat:12.11,lon:-61.68,income:30,capital:0,corporate:28,effective:14},
+  {n:"St. Kitts & Nevis",lat:17.36,lon:-62.78,income:0,capital:0,corporate:33,effective:0},
+  {n:"St. Lucia",lat:13.91,lon:-60.98,income:30,capital:0,corporate:30,effective:14},
+  {n:"St. Vincent",lat:13.25,lon:-61.20,income:30,capital:0,corporate:30,effective:14},
+  {n:"Kap Verde",lat:16.00,lon:-24.01,income:35,capital:10,corporate:25,effective:16},
+  {n:"Komoren",lat:-11.70,lon:43.37,income:30,capital:10,corporate:35,effective:14},
+  {n:"São Tomé",lat:0.19,lon:6.61,income:25,capital:10,corporate:25,effective:12},
+  {n:"Seychellen",lat:-4.68,lon:55.49,income:15,capital:0,corporate:25,effective:10},
+  {n:"Eswatini",lat:-26.52,lon:31.47,income:33,capital:10,corporate:27.5,effective:15},
+  {n:"Osttimor",lat:-8.87,lon:125.73,income:10,capital:10,corporate:10,effective:6},
+  {n:"Palau",lat:7.51,lon:134.58,income:10,capital:0,corporate:4,effective:5},
+  {n:"Mikronesien",lat:6.88,lon:158.23,income:10,capital:0,corporate:21,effective:8},
+  {n:"Marshallinseln",lat:7.13,lon:171.18,income:12,capital:0,corporate:3,effective:6},
+  {n:"Nauru",lat:-0.52,lon:166.93,income:0,capital:0,corporate:25,effective:0},
+  {n:"Tuvalu",lat:-7.11,lon:177.65,income:40,capital:0,corporate:30,effective:15},
+  {n:"Kiribati",lat:1.87,lon:-157.36,income:25,capital:0,corporate:25,effective:10},
+  {n:"Cookinseln",lat:-21.24,lon:-159.78,income:30,capital:0,corporate:20,effective:12},
+  {n:"Niue",lat:-19.05,lon:-169.87,income:30,capital:0,corporate:25,effective:12},
+  {n:"Antigua & Barbuda",lat:17.12,lon:-61.85,income:25,capital:0,corporate:25,effective:13},
+  {n:"Dominica",lat:15.41,lon:-61.37,income:35,capital:0,corporate:25,effective:14},
+  {n:"Belize",lat:17.19,lon:-88.50,income:25,capital:0,corporate:1.75,effective:12},
+  {n:"Dschibuti",lat:11.83,lon:42.59,income:30,capital:10,corporate:25,effective:12},
+  {n:"Gambia",lat:13.44,lon:-15.31,income:30,capital:15,corporate:27,effective:13},
+  {n:"Guinea-Bissau",lat:11.86,lon:-15.60,income:20,capital:10,corporate:25,effective:10},
+  {n:"Äquat.guinea",lat:1.65,lon:10.27,income:35,capital:10,corporate:35,effective:16},
+  {n:"Lesotho",lat:-29.62,lon:28.23,income:35,capital:25,corporate:25,effective:16},
+  {n:"Liberia",lat:6.43,lon:-9.43,income:25,capital:15,corporate:25,effective:12},
+  {n:"Réunion",lat:-21.11,lon:55.53,income:45,capital:30,corporate:25,effective:30},
+];
+
+// Build reverse lookup by country name for robust matching
+const TAX_BY_NAME=(()=>{
+  const map={};
+  Object.entries(TAX).forEach(([id,entry])=>{if(entry.n)map[entry.n]=id;});
+  return map;
+})();
+
+// Helper to reliably find TAX entry from any country ID format
+function getTAXEntry(id){
+  let entry=TAX[String(id)];
+  if(entry)return entry;
+  // Try alpha-2 code mapping
+  if(typeof id === 'string' && id.length === 2 && COUNTRY_CODE_MAP[id]){
+    entry=TAX[COUNTRY_CODE_MAP[id]];
+    if(entry)return entry;
+  }
+  return null;
+}
+
+const OECD_IDS=new Set(["36","40","56","124","152","191","203","208","233","246","250","276","300","348","352","372","376","380","392","410","428","440","442","484","528","554","578","616","620","703","705","724","752","756","792","826","840"]);
+const MONTHS=["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
+const MAX_TAX={income:80,capital:45,corporate:40,effective:60};
+
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+let mode="tax"; // tax | passport | weather
+let taxKey="effective";
+let weatherKey="sun"; // sun | rain | temp
+let monthIdx=0;
+let sortKey="primary-asc";
+let pinnedName=null;
+let mapFeatures=[];
+let isDark=matchMedia("(prefers-color-scheme:dark)").matches;
+
+// Merge all countries
+const allCountries=(()=>{
+  const seen=new Set(),arr=[];
+  Object.values(TAX).forEach(e=>{if(!seen.has(e.n)){seen.add(e.n);arr.push(e);}});
+  SMALL_DOTS.forEach(s=>{if(!seen.has(s.n)){seen.add(s.n);arr.push({n:s.n,income:s.income,capital:s.capital,corporate:s.corporate,effective:s.effective});}});
+  return arr;
+})();
+
+// ═══════════════════════════════════════════════════════
+// DARK MODE
+// ═══════════════════════════════════════════════════════
+function applyDark(){
+  const r=document.documentElement.style;
+  if(isDark){
+    r.setProperty('--bg','#121212');r.setProperty('--bg2','#1e1e1e');r.setProperty('--bg-info','#1e3a5f');
+    r.setProperty('--tx','#e0e0e0');r.setProperty('--tx2','#b0b0b0');r.setProperty('--tx3','#808080');r.setProperty('--tx-info','#64b5f6');
+    r.setProperty('--bd','#404040');r.setProperty('--bd2','#505050');r.setProperty('--bd-info','#64b5f6');
+  } else {
+    r.setProperty('--bg','#fff');r.setProperty('--bg2','#f5f5f5');r.setProperty('--bg-info','#e3f2fd');
+    r.setProperty('--tx','#1a1a1a');r.setProperty('--tx2','#666');r.setProperty('--tx3','#999');r.setProperty('--tx-info','#1976d2');
+    r.setProperty('--bd','#e0e0e0');r.setProperty('--bd2','#ccc');r.setProperty('--bd-info','#1976d2');
+  }
+}
+applyDark();
+
+// ═══════════════════════════════════════════════════════
+// COLOR FUNCTIONS
+// ═══════════════════════════════════════════════════════
+function taxColor(val,maxVal){
+  if(val==null) return isDark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.08)';
+  const t=Math.min(val/maxVal,1);
+  if(t<0.01) return isDark?'rgba(59,130,246,0.3)':'rgba(59,130,246,0.18)';
+  const r=Math.round(59+(220-59)*t),g=Math.round(130+(38-130)*t),b=Math.round(246+(38-246)*t);
+  return `rgba(${r},${g},${b},${isDark?0.3+0.65*t:0.2+0.75*t})`;
+}
+function passportColor(val){ // 0–192 visa-free countries; green scale
+  if(val==null) return isDark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.08)';
+  const t=Math.min(val/192,1);
+  if(t<0.02) return isDark?'rgba(220,38,38,0.5)':'rgba(220,38,38,0.3)';
+  const r=Math.round(220-(220-34)*t),g=Math.round(38+(197-38)*t),b=Math.round(38+(94-38)*t);
+  return `rgba(${r},${g},${b},${isDark?0.25+0.7*t:0.2+0.75*t})`;
+}
+function weatherColor(wkey,val){
+  if(val==null) return isDark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.08)';
+  if(wkey==='sun'){
+    const t=Math.min(val/350,1);
+    const r=Math.round(255-(255-255)*t),g=Math.round(200+(165-200)*t),b=Math.round(50+(0-50)*t);
+    return `rgba(${r},${g},${b},${0.15+0.8*t})`;
+  }
+  if(wkey==='rain'){
+    const t=Math.min(val/350,1);
+    const r=Math.round(200-(200-30)*t),g=Math.round(220-(220-100)*t),b=Math.round(255-(255-200)*t);
+    return `rgba(${r},${g},${b},${0.15+0.8*t})`;
+  }
+  if(wkey==='temp'){
+    const t=Math.min(Math.max((val+10)/50,0),1);
+    const r=Math.round(59+(220-59)*t),g=Math.round(130+(38-130)*t),b=Math.round(246+(38-246)*t);
+    return `rgba(${r},${g},${b},${0.15+0.8*t})`;
+  }
+  return 'rgba(128,128,128,0.3)';
+}
+
+function getCountryColor(name, numericId){
+  if(mode==='tax'){
+    const e=numericId!=null?TAX[String(numericId)]:null;
+    const d=e||SMALL_DOTS.find(s=>s.n===name);
+    return d?taxColor(d[taxKey],MAX_TAX[taxKey]):(isDark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.08)');
+  }
+  if(mode==='passport'){
+    return passportColor(getVisa(name));
+  }
+  if(mode==='weather'){
+    const w=getWeather(name);
+    if(!w) return isDark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.08)';
+    const arr=w[weatherKey];
+    return weatherColor(weatherKey, arr?arr[monthIdx]:null);
+  }
+  return 'rgba(128,128,128,0.3)';
+}
+
+// ═══════════════════════════════════════════════════════
+// FILTER / SORT
+// ═══════════════════════════════════════════════════════
+function buildFilterUI(){
+  const fb=document.getElementById('filter-body');
+  if(mode==='tax'){
+    fb.innerHTML=`
+      <div class="filter-label">Ø Effektiv (%)</div>
+      <div class="range-row"><input type="number" id="f-eff-min" placeholder="0" min="0" max="100"><span>–</span><input type="number" id="f-eff-max" placeholder="100" min="0" max="100"></div>
+      <div class="filter-label">Kapitalertrag (%)</div>
+      <div class="range-row"><input type="number" id="f-cap-min" placeholder="0" min="0" max="100"><span>–</span><input type="number" id="f-cap-max" placeholder="100" min="0" max="100"></div>
+      <div class="filter-label">Körperschaft (%)</div>
+      <div class="range-row"><input type="number" id="f-cor-min" placeholder="0" min="0" max="100"><span>–</span><input type="number" id="f-cor-max" placeholder="100" min="0" max="100"></div>
+      <div class="filter-label">Max. Einkommen (%)</div>
+      <div class="range-row"><input type="number" id="f-inc-min" placeholder="0" min="0" max="100"><span>–</span><input type="number" id="f-inc-max" placeholder="100" min="0" max="100"></div>
+      <button id="filter-reset" style="width:100%;margin-top:5px;padding:4px;font-size:10px;border:0.5px solid var(--bd2);border-radius:4px;background:transparent;color:var(--tx2);cursor:pointer;">Zurücksetzen</button>`;
+  } else if(mode==='passport'){
+    fb.innerHTML=`
+      <div class="filter-label">Visa-freie Länder</div>
+      <div class="range-row"><input type="number" id="f-visa-min" placeholder="0" min="0" max="200"><span>–</span><input type="number" id="f-visa-max" placeholder="200" min="0" max="200"></div>
+      <button id="filter-reset" style="width:100%;margin-top:5px;padding:4px;font-size:10px;border:0.5px solid var(--bd2);border-radius:4px;background:transparent;color:var(--tx2);cursor:pointer;">Zurücksetzen</button>`;
+  } else {
+    fb.innerHTML=`
+      <div class="filter-label">Sonnenstunden/Monat</div>
+      <div class="range-row"><input type="number" id="f-sun-min" placeholder="0" min="0" max="400"><span>–</span><input type="number" id="f-sun-max" placeholder="400" min="0" max="400"></div>
+      <div class="filter-label">Ø Temperatur °C</div>
+      <div class="range-row"><input type="number" id="f-temp-min" placeholder="-20" min="-30" max="50"><span>–</span><input type="number" id="f-temp-max" placeholder="50" min="-30" max="50"></div>
+      <button id="filter-reset" style="width:100%;margin-top:5px;padding:4px;font-size:10px;border:0.5px solid var(--bd2);border-radius:4px;background:transparent;color:var(--tx2);cursor:pointer;">Zurücksetzen</button>`;
+  }
+  // bind reset
+  const rb=document.getElementById('filter-reset');
+  if(rb) rb.addEventListener('click',()=>{fb.querySelectorAll('input').forEach(i=>i.value='');refresh();});
+  fb.querySelectorAll('input').forEach(i=>i.addEventListener('input',refresh));
+}
+
+function getFilters(){
+  const v=id=>{const el=document.getElementById(id);return el&&el.value!==''?parseFloat(el.value):null;};
+  return{
+    effMin:v('f-eff-min'),effMax:v('f-eff-max'),
+    capMin:v('f-cap-min'),capMax:v('f-cap-max'),
+    corMin:v('f-cor-min'),corMax:v('f-cor-max'),
+    incMin:v('f-inc-min'),incMax:v('f-inc-max'),
+    visaMin:v('f-visa-min'),visaMax:v('f-visa-max'),
+    sunMin:v('f-sun-min'),sunMax:v('f-sun-max'),
+    tempMin:v('f-temp-min'),tempMax:v('f-temp-max'),
+  };
+}
+
+function passesFilter(e,f){
+  if(mode==='tax'){
+    if(f.effMin!=null&&e.effective<f.effMin)return false;
+    if(f.effMax!=null&&e.effective>f.effMax)return false;
+    if(f.capMin!=null&&e.capital<f.capMin)return false;
+    if(f.capMax!=null&&e.capital>f.capMax)return false;
+    if(f.corMin!=null&&e.corporate<f.corMin)return false;
+    if(f.corMax!=null&&e.corporate>f.corMax)return false;
+    if(f.incMin!=null&&e.income<f.incMin)return false;
+    if(f.incMax!=null&&e.income>f.incMax)return false;
+  } else if(mode==='passport'){
+    const v=getVisa(e.n);
+    if(f.visaMin!=null&&(v==null||v<f.visaMin))return false;
+    if(f.visaMax!=null&&(v==null||v>f.visaMax))return false;
+  } else if(mode==='weather'){
+    const w=getWeather(e.n);
+    if(w){
+      const sunV=w.sun[monthIdx],tempV=Math.round((w.tmin[monthIdx]+w.tmax[monthIdx])/2);
+      if(f.sunMin!=null&&sunV<f.sunMin)return false;
+      if(f.sunMax!=null&&sunV>f.sunMax)return false;
+      if(f.tempMin!=null&&tempV<f.tempMin)return false;
+      if(f.tempMax!=null&&tempV>f.tempMax)return false;
+    }
+  }
+  return true;
+}
+
+function getPrimaryVal(e){
+  if(mode==='tax') return taxKey==='effective'?e.effective:taxKey==='capital'?e.capital:taxKey==='corporate'?e.corporate:e.income;
+  if(mode==='passport') return getVisa(e.n)??0;
+  if(mode==='weather'){const w=getWeather(e.n);if(!w)return 0;return weatherKey==='sun'?w.sun[monthIdx]:weatherKey==='rain'?w.rain[monthIdx]:Math.round((w.tmin[monthIdx]+w.tmax[monthIdx])/2);}
+  return 0;
+}
+
+function getSorted(arr){
+  return[...arr].sort((a,b)=>{
+    if(sortKey==='name-asc') return a.n.localeCompare(b.n,'de');
+    const av=getPrimaryVal(a),bv=getPrimaryVal(b);
+    return sortKey==='primary-asc'?av-bv:bv-av;
+  });
+}
+
+function getVisible(){
+  const q=document.getElementById('search-input').value.trim().toLowerCase();
+  const f=getFilters();
+  let arr=allCountries;
+  if(q) arr=arr.filter(e=>e.n.toLowerCase().includes(q));
+  return getSorted(arr.filter(e=>passesFilter(e,f)));
+}
+
+// ═══════════════════════════════════════════════════════
+// LEGEND
+// ═══════════════════════════════════════════════════════
+function updateLegend(){
+  const lo=document.getElementById('leg-lo'),hi=document.getElementById('leg-hi'),bar=document.getElementById('leg-bar');
+  if(mode==='tax'){
+    const mx=MAX_TAX[taxKey];
+    lo.textContent='0%'; hi.textContent=mx+'%+';
+    bar.style.background='linear-gradient(to right,rgba(59,130,246,0.18),rgba(220,38,38,0.95))';
+  } else if(mode==='passport'){
+    lo.textContent='0'; hi.textContent='192 Länder';
+    bar.style.background='linear-gradient(to right,rgba(220,38,38,0.4),rgba(34,197,94,0.95))';
+  } else {
+    if(weatherKey==='sun'){lo.textContent='0h';hi.textContent='350h+';bar.style.background='linear-gradient(to right,rgba(255,200,50,0.15),rgba(255,165,0,0.95))';}
+    else if(weatherKey==='rain'){lo.textContent='0mm';hi.textContent='350mm+';bar.style.background='linear-gradient(to right,rgba(200,220,255,0.2),rgba(30,100,200,0.95))';}
+    else{lo.textContent='-10°';hi.textContent='40°C';bar.style.background='linear-gradient(to right,rgba(59,130,246,0.3),rgba(220,38,38,0.95))';}
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// LIST RENDERING
+// ═══════════════════════════════════════════════════════
+function renderList(){
+  const visible=getVisible();
+  const names=new Set(visible.map(e=>e.n));
+  document.getElementById('result-count').textContent=`${visible.length} Länder`;
+
+  const mk=(k,val)=>`<span style="font-weight:500;color:var(--tx-info);">${val}</span>`;
+  const dim=`color:var(--tx2);`;
+
+  document.getElementById('results-list').innerHTML=visible.map(e=>{
+    const isPinned=pinnedName===e.n;
+    let inner='';
+
+    if(mode==='tax'){
+      const hi=k=>`style="color:${k===taxKey?'var(--tx-info)':'var(--tx)'};font-weight:${k===taxKey?600:400};"`;
+      inner=`<div class="res-grid">
+        <span style="${dim}">Ø Effektiv</span><span ${hi('effective')}>${e.effective}%</span>
+        <span style="${dim}">Kapital</span><span ${hi('capital')}>${e.capital}%</span>
+        <span style="${dim}">Körpersch.</span><span ${hi('corporate')}>${e.corporate}%</span>
+        <span style="${dim}">Max.Eink.</span><span ${hi('income')}>${e.income}%</span>
+      </div>`;
+    } else if(mode==='passport'){
+      const v=getVisa(e.n);
+      const rank=v!=null?VISA_FREE_RAW[DE_TO_EN[e.n]||e.n]:null;
+      const pct=v!=null?Math.round(v/192*100):0;
+      inner=`<div class="res-grid">
+        <span style="${dim}">Visa-frei</span><span style="font-weight:600;color:var(--tx-info);">${v!=null?v:'–'}</span>
+        <span style="${dim}">Rank</span><span style="color:var(--tx);">${rank!=null?'#'+Object.keys(VISA_FREE_RAW).indexOf(DE_TO_EN[e.n]||e.n)+1:'–'}</span>
+      </div>
+      <div class="visa-bar-wrap"><div class="visa-bar" style="width:${pct}%;"></div></div>`;
+    } else {
+      const w=getWeather(e.n);
+      const sun=w?w.sun[monthIdx]:0,rain=w?w.rain[monthIdx]:0;
+      const tavg=w?Math.round((w.tmin[monthIdx]+w.tmax[monthIdx])/2):0;
+      const tmin=w?w.tmin[monthIdx]:0,tmax=w?w.tmax[monthIdx]:0;
+      const sunYr=w?Math.round(w.sun.reduce((a,b)=>a+b,0)):0;
+      // mini bar chart for sun across year
+      const maxS=Math.max(...(w?w.sun:[1]));
+      const bars=w?w.sun.map((s,i)=>`<div style="background:${i===monthIdx?'#f59e0b':'rgba(245,158,11,0.35)'};height:${Math.round(s/maxS*18)}px;border-radius:1px;" title="${MONTHS[i]}: ${s}h"></div>`).join(''):'';
+      inner=`<div class="res-grid">
+        <span style="${dim}">☀ ${MONTHS[monthIdx]}</span><span style="color:#f59e0b;font-weight:600;">${sun}h</span>
+        <span style="${dim}">🌧 Regen</span><span style="color:#3b82f6;font-weight:500;">${rain}mm</span>
+        <span style="${dim}">🌡 Ø Temp</span><span style="color:var(--tx);">${tavg}°C (${tmin}–${tmax})</span>
+        <span style="${dim}">☀ Jahressumme</span><span style="color:#f59e0b;">${sunYr}h</span>
+      </div>
+      <div class="w-month-bar">${bars}</div>`;
+    }
+
+    return `<div class="res-item${isPinned?' pinned':''}" data-name="${e.n}">
+      <div class="res-name">${e.n}</div>
+      ${inner}
+    </div>`;
+  }).join('');
+
+  document.getElementById('results-list').querySelectorAll('.res-item').forEach(el=>{
+    el.addEventListener('click',()=>{pinnedName=pinnedName===el.dataset.name?null:el.dataset.name;refresh();});
+  });
+  renderMap(names);
+}
+
+// ═══════════════════════════════════════════════════════
+// MAP
+// ═══════════════════════════════════════════════════════
+const mapArea=document.getElementById('map-area');
+const svg=d3.select('#map-svg');
+const gCountries=svg.append('g').attr('class','g-countries');
+const gDots=svg.append('g').attr('class','g-dots');
+const tooltip=document.getElementById('tooltip');
+const projection=d3.geoNaturalEarth1();
+const pathGen=d3.geoPath(projection);
+
+function updateProjection(){
+  const r=mapArea.getBoundingClientRect();
+  const w=r.width||432,h=r.height||620;
+  projection.scale(w/4.8).translate([w/2,h/2]);
+  document.getElementById('map-svg').setAttribute('viewBox',`0 0 ${w} ${h}`);
+}
+
+const zoom=d3.zoom().scaleExtent([1,8]).on('zoom',ev=>{
+  gCountries.attr('transform',ev.transform);
+  gDots.attr('transform',ev.transform);
+});
+svg.call(zoom);
+
+function buildTooltip(name,numId){
+  let e=numId!=null?TAX[String(numId)]:null;
+  if(!e) e=SMALL_DOTS.find(s=>s.n===name);
+  const isOECD=numId!=null&&OECD_IDS.has(String(numId));
+  const w=getWeather(name);
+  const visa=getVisa(name);
+
+  let html=`<div style="font-weight:600;margin-bottom:6px;font-size:13px;color:var(--tx);">${name}</div>`;
+
+  if(mode==='tax'&&e){
+    const hi=k=>`style="color:${k===taxKey?'var(--tx-info)':'var(--tx)'};font-weight:${k===taxKey?600:400};"`;
+    const note=isOECD?' <span style="font-size:9px;color:var(--tx3)">(OECD)</span>':'<span style="font-size:9px;color:var(--tx3)"> (Sch.)</span>';
+    html+=`<div style="display:grid;grid-template-columns:1fr auto;gap:3px 14px;font-size:11px;color:var(--tx2);">
+      <span>Ø Effektiv${note}</span><span ${hi('effective')}>${e.effective}%</span>
+      <span>Kapitalertrag</span><span ${hi('capital')}>${e.capital}%</span>
+      <span>Körperschaft</span><span ${hi('corporate')}>${e.corporate}%</span>
+      <span>Max. Einkommen</span><span ${hi('income')}>${e.income}%</span>
+    </div>`;
+  } else if(mode==='passport'){
+    const pct=visa!=null?Math.round(visa/192*100):0;
+    html+=`<div style="font-size:11px;color:var(--tx2);margin-bottom:6px;">
+      Visa-freie Länder: <strong style="color:var(--tx-info);">${visa??'–'}</strong> von 192
+    </div>
+    <div style="height:6px;background:var(--bg2);border-radius:3px;overflow:hidden;">
+      <div style="width:${pct}%;height:6px;background:linear-gradient(90deg,#1976d2,#42a5f5);border-radius:3px;"></div>
+    </div>`;
+  } else if(mode==='weather'&&w){
+    const tavg=Math.round((w.tmin[monthIdx]+w.tmax[monthIdx])/2);
+    const sunYr=Math.round(w.sun.reduce((a,b)=>a+b,0));
+    html+=`<div style="font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">${MONTHS[monthIdx]}</div>
+    <div style="display:grid;grid-template-columns:1fr auto;gap:3px 14px;font-size:11px;color:var(--tx2);">
+      <span>☀ Sonne</span><span style="color:#f59e0b;font-weight:600;">${w.sun[monthIdx]}h</span>
+      <span>🌧 Regen</span><span style="color:#3b82f6;font-weight:500;">${w.rain[monthIdx]}mm</span>
+      <span>🌡 Min/Max</span><span style="color:var(--tx);">${w.tmin[monthIdx]}° / ${w.tmax[monthIdx]}°C</span>
+      <span>🌡 Ø Temp</span><span style="color:var(--tx);">${tavg}°C</span>
+      <span>☀ Jahressumme</span><span style="color:#f59e0b;">${sunYr}h</span>
+    </div>`;
+  } else {
+    html+=`<div style="font-size:11px;color:var(--tx3);">Keine Daten</div>`;
+  }
+  return html;
+}
+
+function showTooltip(ev,name,numId){
+  tooltip.innerHTML=buildTooltip(name,numId);
+  tooltip.style.display='block';
+  const r=mapArea.getBoundingClientRect();
+  const mx=ev.clientX-r.left,my=ev.clientY-r.top;
+  tooltip.style.left=Math.min(mx+14,r.width-250)+'px';
+  tooltip.style.top=Math.max(my-10,8)+'px';
+}
+
+function renderMap(highlightNames){
+  const hasFilter=!!highlightNames;
+
+  gCountries.selectAll('path.country').data(mapFeatures).join('path')
+    .attr('class','country').attr('d',pathGen)
+    .attr('stroke',isDark?'rgba(255,255,255,0.12)':'rgba(0,0,0,0.15)')
+    .attr('stroke-width',isDark?0.5:0.4)
+    .attr('fill',d=>{
+      const e=getTAXEntry(d.id);
+      const name=e?e.n:null;
+      if(!name) return isDark?'rgba(255,255,255,0.05)':'rgba(0,0,0,0.07)';
+      if(hasFilter&&!highlightNames.has(name)) return isDark?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.04)';
+      return getCountryColor(name,d.id);
+    })
+    .attr('fill-opacity',d=>{
+      if(!hasFilter) return 1;
+      const e=getTAXEntry(d.id);
+      return(!e||highlightNames.has(e.n))?1:0.12;
+    })
+    .style('cursor','pointer')
+    .on('mousemove',function(ev,d){
+      const e=getTAXEntry(d.id);
+      if(!e){tooltip.style.display='none';return;}
+      if(hasFilter&&!highlightNames.has(e.n)){tooltip.style.display='none';return;}
+      showTooltip(ev,e.n,d.id);
+    })
+    .on('mouseleave',()=>{tooltip.style.display='none';});
+
+  // Dots
+  const dotData=SMALL_DOTS.map(s=>{
+    const proj=projection([s.lon,s.lat]);
+    return proj?{...s,px:proj[0],py:proj[1]}:null;
+  }).filter(Boolean);
+
+  gDots.selectAll('g.sdot').data(dotData,d=>d.n).join(
+    enter=>{
+      const gg=enter.append('g').attr('class','sdot').style('cursor','pointer');
+      gg.append('circle').attr('class','dot-outer').attr('r',3.5).attr('fill','none').attr('stroke-width',1.2);
+      gg.append('circle').attr('class','dot-inner').attr('r',2.2);
+      gg.on('mousemove',function(ev,d){
+        if(hasFilter&&!highlightNames.has(d.n)){tooltip.style.display='none';return;}
+        showTooltip(ev,d.n,null);
+      }).on('mouseleave',()=>{tooltip.style.display='none';});
+      return gg;
+    },update=>update
+  )
+  .attr('transform',d=>`translate(${d.px},${d.py})`)
+  .attr('opacity',d=>{if(!hasFilter)return 1;return highlightNames.has(d.n)?1:0.15;})
+  .each(function(d){
+    d3.select(this).select('.dot-inner').attr('fill',getCountryColor(d.n,null));
+    d3.select(this).select('.dot-outer').attr('stroke',isDark?'rgba(255,255,255,0.6)':'rgba(0,0,0,0.35)');
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// MODE SWITCHING UI
+// ═══════════════════════════════════════════════════════
+function switchMode(m){
+  mode=m;
+  // sub-bar
+  const subBar=document.getElementById('sub-bar');
+  if(m==='tax'){
+    subBar.style.display='flex';
+    subBar.innerHTML=`
+      <button class="sub-btn${taxKey==='effective'?' active':''}" data-key="effective">Ø Effektiv</button>
+      <button class="sub-btn${taxKey==='capital'?' active':''}" data-key="capital">Kapital</button>
+      <button class="sub-btn${taxKey==='corporate'?' active':''}" data-key="corporate">Körper.</button>
+      <button class="sub-btn${taxKey==='income'?' active':''}" data-key="income">Max.Eink.</button>`;
+    subBar.querySelectorAll('.sub-btn').forEach(b=>b.addEventListener('click',function(){
+      taxKey=this.dataset.key;
+      subBar.querySelectorAll('.sub-btn').forEach(x=>x.classList.remove('active'));
+      this.classList.add('active');
+      updateLegend();refresh();
+    }));
+  } else if(m==='passport'){
+    subBar.style.display='none';
+  } else {
+    subBar.style.display='none';
+  }
+
+  // weather ctrl
+  const wc=document.getElementById('weather-ctrl');
+  wc.classList.toggle('visible',m==='weather');
+
+  document.getElementById('filter-toggle').textContent=
+    (document.getElementById('filter-body').classList.contains('open')?'▾':'▸')+
+    (m==='tax'?' Steuer-Filter':m==='passport'?' Pass-Filter':' Wetter-Filter');
+
+  buildFilterUI();
+  updateLegend();
+  refresh();
+}
+
+// ═══════════════════════════════════════════════════════
+// MASTER REFRESH
+// ═══════════════════════════════════════════════════════
+function refresh(){renderList();}
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+updateProjection();
+d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(world=>{
+  mapFeatures=topojson.feature(world,world.objects.countries).features;
+  switchMode('tax');
+});
+
+// Mode bar
+document.querySelectorAll('.mode-btn').forEach(btn=>{
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+    this.classList.add('active');
+    switchMode(this.dataset.mode);
+  });
+});
+
+// Sort bar
+document.querySelectorAll('.sort-btn').forEach(btn=>{
+  btn.addEventListener('click',function(){
+    sortKey=this.dataset.sort;
+    document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('active'));
+    this.classList.add('active');
+    refresh();
+  });
+});
+
+// Filter toggle
+document.getElementById('filter-toggle').addEventListener('click',function(){
+  const fb=document.getElementById('filter-body');
+  const open=fb.classList.toggle('open');
+  const label=mode==='tax'?' Steuer-Filter':mode==='passport'?' Pass-Filter':' Wetter-Filter';
+  this.textContent=(open?'▾':'▸')+label;
+});
+
+// Search
+document.getElementById('search-input').addEventListener('input',refresh);
+
+// Month slider
+document.getElementById('month-slider').addEventListener('input',function(){
+  monthIdx=parseInt(this.value);
+  document.getElementById('month-label').textContent=MONTHS[monthIdx];
+  updateLegend();
+  refresh();
+});
+
+// Weather sub-tabs
+document.querySelectorAll('.wc-tab').forEach(btn=>{
+  btn.addEventListener('click',function(){
+    weatherKey=this.dataset.wkey;
+    document.querySelectorAll('.wc-tab').forEach(b=>b.classList.remove('active'));
+    this.classList.add('active');
+    updateLegend();refresh();
+  });
+});
+
+// Zoom
+document.getElementById('zoom-in').addEventListener('click',()=>svg.transition().duration(300).call(zoom.scaleBy,1.6));
+document.getElementById('zoom-out').addEventListener('click',()=>svg.transition().duration(300).call(zoom.scaleBy,0.625));
+document.getElementById('zoom-reset').addEventListener('click',()=>svg.transition().duration(400).call(zoom.transform,d3.zoomIdentity));
+document.getElementById('dark-toggle').addEventListener('click',()=>{
+  isDark=!isDark;applyDark();
+  document.getElementById('dark-toggle').textContent=isDark?'◑':'◐';
+  refresh();
+});
+</script>
+</body>
+</html>

@@ -1489,7 +1489,7 @@
 			-ms-transform: translateY(0);
 			transform: translateY(0);
 			bottom: auto;
-			height: 4em;
+			height: auto;
 			padding: 0 1em;
 			top: 0;
 		}
@@ -1505,9 +1505,41 @@
 				font-size: 0.9em;
 			}
 
+			#header nav {
+				position: static;
+				margin-top: 0.5em;
+				width: 100%;
+			}
+
+			#header nav > ul {
+				display: flex;
+				flex-direction: column;
+				width: 100%;
+			}
+
+			#header nav > ul > li {
+				display: block;
+				width: 100%;
+				border-bottom: 1px solid #36383c;
+			}
+
+			#header nav > ul > li:last-child {
+				border-bottom: none;
+			}
+
 			#header nav > ul > li a {
 				font-size: 0.9em;
-				padding: 0 1.15em;
+				padding: 0.75em 1.15em;
+				display: block;
+				width: 100%;
+				text-align: left;
+			}
+
+			#header nav > ul > li a.icon:before {
+				margin-left: 0;
+				margin-right: 0.5em;
+				float: none;
+				display: inline-block;
 			}
 
 	}
